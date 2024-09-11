@@ -1,8 +1,14 @@
-cmake_minimum_required(VERSION 3.10.0)
+# cmake最低版本号
+cmake_minimum_required( VERSION 3.10.0 )
 
-project(rvcc)
+# 项目名称
+project( rvcc C )
 
-add_executable(rvcc
-    main.c
+# 可执行文件rvcc的依赖文件
+add_executable( rvcc
+  main.c
 )
+
+# 编译参数
+target_compile_options(rvcc PRIVATE -std=c11 -g -fno-common)
 
