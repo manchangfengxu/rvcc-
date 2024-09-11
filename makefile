@@ -1,6 +1,7 @@
 CFLAGS=-std=c11 -g -fno-common
 CC=clang
 file = main
+# file = demo
 rvcc:$(file).o
 	$(CC) -o rvcc $(CFLAGS) $(file).o
 
