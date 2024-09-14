@@ -25,7 +25,7 @@ static void pop(char *Reg) {
 static void genAder(Node *Nd){
   if(Nd->Kind == ND_VAR){
     int Offset = (Nd->Name - 'a' + 1) * 8;
-    printf("  addi a0, fp, %d\n", Offset);
+    printf("  addi a0, fp, %d\n", -Offset);
     return;
   }
   

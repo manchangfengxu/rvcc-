@@ -62,22 +62,6 @@ static Node *newVarNode(char Name)
   return Nd;
 }
 
-// 解析赋值
-// assign = equality ("=" assign)?
-static Node *assign(Token **Rest, Token *Tok)
-{
-  Node *Nd = equality(&Tok, Tok);
-
-  // 可能存在递归赋值，如a=b=1
-  // ("=" assign)?
-  if (equal(Tok, "="))
-  {
-    Node *Nd = newBinary(ND_ASSIGN, Nd, assign(&Tok, Tok->Next));
-  }
-  *Rest = Tok;
-  return Nd;
-}
-
 static Node *stmt(Token **Rest, Token *Tok) { return exprStmt(Rest, Tok); }
 
 // 解析表达式语句
@@ -92,6 +76,20 @@ static Node *exprStmt(Token **Rest, Token *Tok)
 // 解析表达式
 // expr = assign
 static Node *expr(Token **Rest, Token *Tok) { return assign(Rest, Tok); }
+
+// 解析赋值
+// assign = equality ("=" assign)?
+static Node *assign(Token **Rest, Token *Tok)
+{
+  Node *Nd = equality(&Tok, Tok);
+
+  // 可能存在递归赋值，如a=b=1
+  // ("=" assign)?
+  if (equal(Tok, "="))
+    Nd = newBinary(ND_ASSIGN, Nd, assign(&Tok, Tok->Next));
+  *Rest = Tok;
+  return Nd;
+}
 
 // 解析相等性
 // equality = relational ("==" relational | "!=" relational)*
@@ -279,7 +277,6 @@ Node *parse(Token *Tok)
   Node *Cur = &Head;
   while (Tok->Kind != TK_EOF)
   {
-    Node *Cur = &Head;
     Cur->Next = stmt(&Tok, Tok);
     Cur = Cur->Next;
   }
