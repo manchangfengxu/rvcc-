@@ -23,6 +23,7 @@ typedef enum
 {
   TK_IDENT,
   TK_PUNCT, // 操作符如： + -
+  TK_KEYWORD,
   TK_NUM,   // 数字
   TK_EOF,   // 文件终止符，即文件的最后
 } TokenKind;
@@ -87,6 +88,8 @@ typedef enum
   ND_LT,        // <
   ND_LE,        // <=
   ND_ASSIGN,    // 赋值
+  ND_RETURN,    // return
+  ND_BLOCK,     // { ... }，代码块
   ND_EXPR_STMT, // 表达式语句
   ND_VAR,       // 变量
   ND_NUM,       // 整形
@@ -99,8 +102,12 @@ struct Node
   Node *Next;    // 指向下一节点
   Node *LHS;     // 左部，left-hand side
   Node *RHS;     // 右部，right-hand side
-  Obj *Var;      // 存储ND_VAR种类的变量
-  int Val;       // 存储ND_NUM种类的值
+  
+  // 代码块
+  Node *Body;
+
+  Obj *Var; // 存储ND_VAR种类的变量
+  int Val;  // 存储ND_NUM种类的值
 };
 
 // 语法解析入口函数
