@@ -3,8 +3,9 @@
 // 在解析时，全部的变量实例都被累加到这个列表里。
 Obj *Locals;
 
-// program = stmt*
-// stmt = exprStmt
+// program = "{" compoundStmt
+// compoundStmt = stmt* "}"
+// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
 // exprStmt = expr ";"
 // expr = assign
 // assign = equality ("=" assign)?
@@ -13,7 +14,8 @@ Obj *Locals;
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
 // unary = ("+" | "-") unary | primary
-// primary = "(" expr ")" | num
+// primary = "(" expr ")" | ident | num
+static Node *compoundStmt(Token **Rest, Token *Tok);
 static Node *exprStmt(Token **Rest, Token *Tok);
 static Node *expr(Token **Rest, Token *Tok);
 static Node *assign(Token **Rest, Token *Tok);
@@ -84,13 +86,53 @@ static Obj *newLVar(char *Name)
 {
   Obj *Var = calloc(1, sizeof(Obj));
   Var->Name = Name;
-  //将变量插入头部
+  // 将变量插入头部
   Var->Next = Locals;
   Locals = Var;
   return Var;
 }
 
-static Node *stmt(Token **Rest, Token *Tok) { return exprStmt(Rest, Tok); }
+// 解析语句
+//  stmt = "return" expr ";" | "{" compoundStmt | exprStmt
+static Node *stmt(Token **Rest, Token *Tok)
+{
+  // "return" expr ";"
+  if (equal(Tok, "return"))
+  {
+    Node *Nd = newUnary(ND_RETURN, expr(&Tok, Tok->Next));
+    *Rest = skip(Tok, ";");
+    return Nd;
+  }
+
+  // "{" compoundStmt
+  if (equal(Tok, "{"))
+  {
+    return compoundStmt(Rest, Tok->Next);
+  }
+
+  // exprStmt
+  return exprStmt(Rest, Tok);
+}
+
+// 解析复合语句
+// compoundStmt = stmt* "}"
+static Node *compoundStmt(Token **Rest, Token *Tok)
+{
+  // 这里使用了和词法分析类似的单向链表结构
+  Node Head = {};
+  Node *Cur = &Head;
+  // stmt* "}"
+  while (!equal(Tok, "}"))
+  {
+    Cur->Next = stmt(&Tok, Tok);
+    Cur = Cur->Next;
+  }
+  // 同一个{}块用stmt进行分析，并用Next连接起，Body指向头结点
+  Node *Nd = newNode(ND_BLOCK);
+  Nd->Body = Head.Next;
+  *Rest = Tok->Next;
+  return Nd;
+}
 
 // 解析表达式语句
 // exprStmt = expr ";
@@ -285,16 +327,16 @@ static Node *primary(Token **Rest, Token *Tok)
     // 查找变量
     Obj *Var = findVar(Tok);
     // 如果变量不存在，就在链表中新增一个变量
-    if(!Var)
-    // strndup复制N个字符
+    if (!Var)
+      // strndup复制N个字符
       Var = newLVar(strndup(Tok->Loc, Tok->Len));
     Node *Nd = newVarNode(Var);
     *Rest = Tok->Next;
     return Nd;
   }
+  
   // num
-  if (Tok->Kind == TK_NUM)
-  {
+  if (Tok->Kind == TK_NUM) {
     Node *Nd = newNum(Tok->Val);
     *Rest = Tok->Next;
     return Nd;
@@ -305,22 +347,14 @@ static Node *primary(Token **Rest, Token *Tok)
 }
 
 // 语法解析入口函数
-Function *parse(Token *Tok)
-{
-  // 这里使用了和词法分析类似的单向链表结构
-  Node Head = {};
-  Node *Cur = &Head;
+// program = "{" compoundStmt
+Function *parse(Token *Tok) {
+  // "{"
+  Tok = skip(Tok, "{");
 
-  // stmt*
-  while (Tok->Kind != TK_EOF)
-  {
-    Cur->Next = stmt(&Tok, Tok);
-    Cur = Cur->Next;
-  }
-  
-   // 函数体存储语句的AST，Locals存储变量
-   Function *Prog = calloc(1, sizeof(Function));
-   Prog->Body = Head.Next;
-   Prog->Locals = Locals;
-   return Prog;
+  // 函数体存储语句的AST，Locals存储变量
+  Function *Prog = calloc(1, sizeof(Function));
+  Prog->Body = compoundStmt(&Tok, Tok);
+  Prog->Locals = Locals;
+  return Prog;
 }

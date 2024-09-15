@@ -137,10 +137,26 @@ static void genExpr(Node *Nd)
 
 static void genStmt(Node *Nd)
 {
-  if (Nd->Kind == ND_EXPR_STMT)
+  switch (Nd->Kind)
   {
+  // 生成代码块，遍历代码块的语句链表
+  case ND_BLOCK:
+    for(Node *N = Nd->Body; N; N = N->Next){
+      genStmt(N);
+    }
+    return;
+    // 生成return语句
+  case ND_RETURN:
+    genExpr(Nd->LHS);
+    // 无条件跳转语句，跳转到.L.return段
+    // j offset是 jal x0, offset的别名指令
+    printf("  j .L.return\n");
+    return;
+  case ND_EXPR_STMT:
     genExpr(Nd->LHS);
     return;
+  default:
+    break;
   }
   error("invalid statement");
 }
@@ -186,13 +202,13 @@ void codegen(Function *Prog)
   // 偏移量为实际变量所用的栈大小
   printf("  addi sp, sp, -%d\n", Prog->StackSize);
 
-  for (Node *N = Prog->Body; N; N = N->Next)
-  {
-    genStmt(N);
-    assert(Depth == 0);
-  }
-
+  // 生成语句链表的代码
+  genStmt(Prog->Body);
+  assert(Depth == 0);
+  
   // Epilogue，后语
+  // 输出return段标签
+  printf(".L.return:\n");
   // 将fp的值改写回sp
   printf("  mv sp, fp\n");
   // 将最早fp保存的值弹栈，恢复fp。
