@@ -7,35 +7,47 @@ static int Depth;
 // sp为栈指针，栈反向向下增长，64位下，8个字节为一个单位，所以sp-8
 // 当前栈指针的地址就是sp，将a0的值压入栈
 // 不使用寄存器存储的原因是因为需要存储的值的数量是变化的。
-static void push(void) {
+static void push(void)
+{
   printf("  addi sp, sp, -8\n");
   printf("  sd a0, 0(sp)\n");
   Depth++;
 }
 
 // 弹栈，将sp指向的地址的值，弹出到a1
-static void pop(char *Reg) {
+static void pop(char *Reg)
+{
   printf("  ld %s, 0(sp)\n", Reg);
   printf("  addi sp, sp, 8\n");
   Depth--;
 }
 
+//// 对齐到Align的整数倍
+static int alignTo(int N, int Align)
+{
+  // (0,Align)返回Align
+  return (N + Align - 1) / Align * Align;
+}
+
 // 计算给定节点的绝对地址
 // 如果报错，说明节点不在内存中
-static void genAder(Node *Nd){
-  if(Nd->Kind == ND_VAR){
-    int Offset = (Nd->Name - 'a' + 1) * 8;
-    printf("  addi a0, fp, %d\n", -Offset);
+static void genAder(Node *Nd)
+{
+  if (Nd->Kind == ND_VAR)
+  {
+    printf("  addi a0, fp, %d\n", Nd->Var->Offset);
     return;
   }
-  
+
   error("not an lvalue");
 }
 
 // 生成表达式
-static void genExpr(Node *Nd) {
+static void genExpr(Node *Nd)
+{
   // 生成各个根节点
-  switch (Nd->Kind) {
+  switch (Nd->Kind)
+  {
   // 加载数字到a0
   case ND_NUM:
     printf("  li a0, %d\n", Nd->Val);
@@ -46,14 +58,14 @@ static void genExpr(Node *Nd) {
     // neg a0, a0是sub a0, x0, a0的别名, 即a0=0-a0
     printf("  neg a0, a0\n");
     return;
-  //变量
+  // 变量
   case ND_VAR:
     // 计算出变量的地址，然后存入a0
     genAder(Nd);
     // 访问a0地址中存储的数据，存入到a0当中
     printf("  ld a0, 0(a0)\n");
     return;
- // 赋值    
+    // 赋值
   case ND_ASSIGN:
     // 左部是左值，保存值到的地址
     genAder(Nd->LHS);
@@ -77,7 +89,8 @@ static void genExpr(Node *Nd) {
   pop("a1");
 
   // 生成各个二叉树节点
-  switch (Nd->Kind) {
+  switch (Nd->Kind)
+  {
   case ND_ADD: // + a0=a0+a1
     printf("  add a0, a0, a1\n");
     return;
@@ -122,27 +135,45 @@ static void genExpr(Node *Nd) {
   error("invalid expression");
 }
 
-static void genStmt(Node *Nd) {
-  if (Nd->Kind == ND_EXPR_STMT) {
+static void genStmt(Node *Nd)
+{
+  if (Nd->Kind == ND_EXPR_STMT)
+  {
     genExpr(Nd->LHS);
     return;
   }
   error("invalid statement");
 }
+
+// 根据变量的链表计算出偏移量
+static void assignLVarOffsets(Function *Prog)
+{
+  int Offset = 0;
+  // 读取所有变量
+  for (Obj *Var = Prog->Locals; Var; Var = Var->Next)
+  {
+    // 每个变量分配8字节
+    Offset += 8;
+    // 为每个变量赋一个偏移量，或者说是栈中地址
+    Var->Offset = -Offset;
+  }
+  // 将栈对齐到16字节
+  Prog->StackSize = alignTo(Offset, 16);
+}
+
 // 代码生成入口函数，包含代码块的基础信息
-void codegen(Node *Nd) {
+void codegen(Function *Prog)
+{
+  assignLVarOffsets(Prog);
   printf("  .globl main\n");
   printf("main:\n");
 
-    // 栈布局
+  // 栈布局
   //-------------------------------// sp
-  //              fp                  fp = sp-8
-  //-------------------------------// fp
-  //              'a'                 fp-8
-  //              'b'                 fp-16
-  //              ...
-  //              'z'                 fp-208
-  //-------------------------------// sp=sp-8-208
+  //              fp
+  //-------------------------------// fp = sp-8
+  //             变量
+  //-------------------------------// sp = sp-8-StackSize
   //           表达式计算
   //-------------------------------//
 
@@ -152,10 +183,11 @@ void codegen(Node *Nd) {
   // 将sp写入fp
   printf("  mv fp, sp\n");
 
-  // 26个字母*8字节=208字节，栈腾出208字节的空间
-  printf("  addi sp, sp, -208\n");
+  // 偏移量为实际变量所用的栈大小
+  printf("  addi sp, sp, -%d\n", Prog->StackSize);
 
-  for (Node *N = Nd; N; N = N->Next) {
+  for (Node *N = Prog->Body; N; N = N->Next)
+  {
     genStmt(N);
     assert(Depth == 0);
   }

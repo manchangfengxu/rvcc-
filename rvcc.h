@@ -1,3 +1,7 @@
+// 使用POSIX.1标准
+// 使用了strndup函数
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <ctype.h>
 #include <stdarg.h>
@@ -15,7 +19,8 @@
 //
 
 // 为每个终结符都设置种类来表示
-typedef enum {
+typedef enum
+{
   TK_IDENT,
   TK_PUNCT, // 操作符如： + -
   TK_NUM,   // 数字
@@ -24,7 +29,8 @@ typedef enum {
 
 // 终结符结构体
 typedef struct Token Token;
-struct Token {
+struct Token
+{
   TokenKind Kind; // 种类
   Token *Next;    // 指向下一终结符
   int Val;        // 值
@@ -47,40 +53,62 @@ Token *tokenize(char *Input);
 // 生成AST（抽象语法树），语法解析
 //
 
+typedef struct Node Node;
+
+// 本地变量
+typedef struct Obj Obj;
+
+struct Obj
+{
+  Obj *Next;
+  char *Name;
+  int Offset;
+};
+
+// 函数
+typedef struct Function Function;
+struct Function
+{
+  Node *Body;    // 函数体
+  Obj *Locals;   // 本地变量
+  int StackSize; // 栈大小
+};
+
 // AST的节点种类
-typedef enum {
-  ND_ADD, // +
-  ND_SUB, // -
-  ND_MUL, // *
-  ND_DIV, // /
-  ND_NEG, // 负号-
-  ND_EQ,  // ==
-  ND_NE,  // !=
-  ND_LT,  // <
-  ND_LE,  // <=
+typedef enum
+{
+  ND_ADD,       // +
+  ND_SUB,       // -
+  ND_MUL,       // *
+  ND_DIV,       // /
+  ND_NEG,       // 负号-
+  ND_EQ,        // ==
+  ND_NE,        // !=
+  ND_LT,        // <
+  ND_LE,        // <=
   ND_ASSIGN,    // 赋值
   ND_EXPR_STMT, // 表达式语句
-  ND_VAR,       // 变量  
-  ND_NUM, // 整形
+  ND_VAR,       // 变量
+  ND_NUM,       // 整形
 } NodeKind;
 
 // AST中二叉树节点
-typedef struct Node Node;
-struct Node {
+struct Node
+{
   NodeKind Kind; // 节点种类
   Node *Next;    // 指向下一节点
   Node *LHS;     // 左部，left-hand side
   Node *RHS;     // 右部，right-hand side
-  char Name;     // 存储ND_VAR的字符串
+  Obj *Var;      // 存储ND_VAR种类的变量
   int Val;       // 存储ND_NUM种类的值
 };
 
 // 语法解析入口函数
-Node *parse(Token *Tok);
+Function *parse(Token *Tok);
 
 //
 // 语义分析与代码生成
 //
 
 // 代码生成入口函数
-void codegen(Node *Nd);
+void codegen(Function *Prog);
