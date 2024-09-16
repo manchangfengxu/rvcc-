@@ -3,6 +3,13 @@
 // 记录栈深度
 static int Depth;
 
+// 代码段计数
+static int count()
+{
+  static int I = 1;
+  return I++;
+}
+
 // 压栈，将结果临时压入栈中备用
 // sp为栈指针，栈反向向下增长，64位下，8个字节为一个单位，所以sp-8
 // 当前栈指针的地址就是sp，将a0的值压入栈
@@ -137,11 +144,26 @@ static void genExpr(Node *Nd)
 
 static void genStmt(Node *Nd)
 {
+  int C = 0;
   switch (Nd->Kind)
   {
+  case ND_IF:
+    C = count();
+    genExpr(Nd->Cond);
+    printf("  beqz a0, .L.else.%d\n", C);
+    genStmt(Nd->Then);
+    printf("  j .L.end.%d\n", C);
+    printf(".L.else.%d:\n", C);
+    if (Nd->Els)
+    {
+      genStmt(Nd->Els);
+    }
+    printf(".L.end.%d:\n", C);
+    return;
   // 生成代码块，遍历代码块的语句链表
   case ND_BLOCK:
-    for(Node *N = Nd->Body; N; N = N->Next){
+    for (Node *N = Nd->Body; N; N = N->Next)
+    {
       genStmt(N);
     }
     return;
@@ -205,7 +227,7 @@ void codegen(Function *Prog)
   // 生成语句链表的代码
   genStmt(Prog->Body);
   assert(Depth == 0);
-  
+
   // Epilogue，后语
   // 输出return段标签
   printf(".L.return:\n");

@@ -5,8 +5,11 @@ Obj *Locals;
 
 // program = "{" compoundStmt
 // compoundStmt = stmt* "}"
-// stmt = "return" expr ";" | "{" compoundStmt | exprStmt
-// exprStmt = expr ";"
+// stmt = "return" expr ";"
+//        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "{" compoundStmt
+//        | exprStmt
+// exprStmt = expr? ";"
 // expr = assign
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
@@ -92,8 +95,10 @@ static Obj *newLVar(char *Name)
   return Var;
 }
 
-// 解析语句
-//  stmt = "return" expr ";" | "{" compoundStmt | exprStmt
+// stmt = "return" expr ";"
+//        | "if" "(" expr ")" stmt ("else" stmt)?
+//        | "{" compoundStmt
+//        | exprStmt
 static Node *stmt(Token **Rest, Token *Tok)
 {
   // "return" expr ";"
@@ -101,6 +106,24 @@ static Node *stmt(Token **Rest, Token *Tok)
   {
     Node *Nd = newUnary(ND_RETURN, expr(&Tok, Tok->Next));
     *Rest = skip(Tok, ";");
+    return Nd;
+  }
+
+  // 解析if语句
+  // "if" "(" expr ")" stmt ("else" stmt)?  
+  if(equal(Tok, "if")){
+    Node *Nd = newNode(ND_IF);
+    // "(" expr ")"，条件内语句
+    Tok = skip(Tok->Next, "(");
+    Nd->Cond = expr(&Tok, Tok);
+    Tok = skip(Tok, ")" );
+    // stmt，符合条件后的语句
+    Nd->Then = stmt(&Tok, Tok);
+    // ("else" stmt)?，不符合条件后的语句
+    if(equal(Tok, "else")){
+      Nd->Els = stmt(&Tok, Tok->Next);
+    }
+    *Rest = Tok;
     return Nd;
   }
 
@@ -138,6 +161,14 @@ static Node *compoundStmt(Token **Rest, Token *Tok)
 // exprStmt = expr ";
 static Node *exprStmt(Token **Rest, Token *Tok)
 {
+  // ";"
+  if (equal(Tok, ";"))
+  {
+    *Rest = Tok->Next;
+    return newNode(ND_BLOCK);
+  }
+
+  // expr ";"
   Node *Nd = newUnary(ND_EXPR_STMT, expr(&Tok, Tok));
   *Rest = skip(Tok, ";");
   return Nd;
@@ -334,9 +365,10 @@ static Node *primary(Token **Rest, Token *Tok)
     *Rest = Tok->Next;
     return Nd;
   }
-  
+
   // num
-  if (Tok->Kind == TK_NUM) {
+  if (Tok->Kind == TK_NUM)
+  {
     Node *Nd = newNum(Tok->Val);
     *Rest = Tok->Next;
     return Nd;
@@ -348,7 +380,8 @@ static Node *primary(Token **Rest, Token *Tok)
 
 // 语法解析入口函数
 // program = "{" compoundStmt
-Function *parse(Token *Tok) {
+Function *parse(Token *Tok)
+{
   // "{"
   Tok = skip(Tok, "{");
 
