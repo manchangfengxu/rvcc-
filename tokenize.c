@@ -6,7 +6,8 @@ static char *CurrentInput;
 // 输出错误信息
 // static文件内可以访问的函数
 // Fmt为传入的字符串， ... 为可变参数，表示Fmt后面所有的参数
-void error(char *Fmt, ...) {
+void error(char *Fmt, ...)
+{
   // 定义一个va_list变量
   va_list VA;
   // VA获取Fmt后面的所有参数
@@ -22,7 +23,8 @@ void error(char *Fmt, ...) {
 }
 
 // 输出错误出现的位置，并退出
-static void verrorAt(char *Loc, char *Fmt, va_list VA) {
+static void verrorAt(char *Loc, char *Fmt, va_list VA)
+{
   // 先输出源信息
   fprintf(stderr, "%s\n", CurrentInput);
 
@@ -38,7 +40,8 @@ static void verrorAt(char *Loc, char *Fmt, va_list VA) {
 }
 
 // 字符解析出错
-void errorAt(char *Loc, char *Fmt, ...) {
+void errorAt(char *Loc, char *Fmt, ...)
+{
   va_list VA;
   va_start(VA, Fmt);
   verrorAt(Loc, Fmt, VA);
@@ -46,7 +49,8 @@ void errorAt(char *Loc, char *Fmt, ...) {
 }
 
 // Tok解析出错
-void errorTok(Token *Tok, char *Fmt, ...) {
+void errorTok(Token *Tok, char *Fmt, ...)
+{
   va_list VA;
   va_start(VA, Fmt);
   verrorAt(Tok->Loc, Fmt, VA);
@@ -54,7 +58,8 @@ void errorTok(Token *Tok, char *Fmt, ...) {
 }
 
 // 判断Tok的值是否等于指定值，没有用char，是为了后续拓展
-bool equal(Token *Tok, char *Str) {
+bool equal(Token *Tok, char *Str)
+{
   // 比较字符串LHS（左部），RHS（右部）的前N位，S2的长度应大于等于N.
   // 比较按照字典序，LHS<RHS回负值，LHS=RHS返回0，LHS>RHS返回正值
   // 同时确保，此处的Op位数=N
@@ -62,21 +67,24 @@ bool equal(Token *Tok, char *Str) {
 }
 
 // 跳过指定的Str
-Token *skip(Token *Tok, char *Str) {
+Token *skip(Token *Tok, char *Str)
+{
   if (!equal(Tok, Str))
     errorTok(Tok, "expect '%s'", Str);
   return Tok->Next;
 }
 
 // 返回TK_NUM的值
-static int getNumber(Token *Tok) {
+static int getNumber(Token *Tok)
+{
   if (Tok->Kind != TK_NUM)
     errorTok(Tok, "expect a number");
   return Tok->Val;
 }
 
 // 生成新的Token
-static Token *newToken(TokenKind Kind, char *Start, char *End) {
+static Token *newToken(TokenKind Kind, char *Start, char *End)
+{
   // 分配1个Token的内存空间
   Token *Tok = calloc(1, sizeof(Token));
   Tok->Kind = Kind;
@@ -86,26 +94,30 @@ static Token *newToken(TokenKind Kind, char *Start, char *End) {
 }
 
 // 判断Str是否以SubStr开头
-static bool startsWith(char *Str, char *SubStr) {
+static bool startsWith(char *Str, char *SubStr)
+{
   // 比较LHS和RHS的N个字符是否相等
   return strncmp(Str, SubStr, strlen(SubStr)) == 0;
 }
 
 // 判断标记符的首字母规则
 // [a-zA-Z_]
-static bool isIdent_char(char C){
+static bool isIdent_char(char C)
+{
   // a-z与A-Z在ASCII中不相连，所以需要分别判断
   return ('a' <= C && C <= 'z') || ('A' <= C && C <= 'Z') || C == '_';
 }
 
 // 判断标记符的非首字母的规则
 // [a-zA-Z0-9_]
-static bool isIdent_charnum(char C){
+static bool isIdent_charnum(char C)
+{
   return ('1' <= C && C <= '9') || isIdent_char(C);
 }
 
 // 读取操作符
-static int readPunct(char *Ptr) {
+static int readPunct(char *Ptr)
+{
   // 判断2字节的操作符
   if (startsWith(Ptr, "==") || startsWith(Ptr, "!=") || startsWith(Ptr, "<=") ||
       startsWith(Ptr, ">="))
@@ -115,30 +127,53 @@ static int readPunct(char *Ptr) {
   return ispunct(*Ptr) ? 1 : 0;
 }
 
+// 判断是否为关键在
+static bool isKeyword(Token *Tok)
+{
+  static char *Kw[] = {"return", "if", "else"};
+
+  // 遍历关键字列表匹配
+  for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I)
+  {
+    if (equal(Tok, Kw[I]))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 // 将名为“return”的终结符转为KEYWORD
-static void convertKeywords(Token *Tok) {
-  for(Token *T = Tok; T->Kind != TK_EOF; T = T->Next){
-    if(equal(T, "return")){
+static void convertKeywords(Token *Tok)
+{
+  for (Token *T = Tok; T->Kind != TK_EOF; T = T->Next)
+  {
+    if (isKeyword(Tok))
+    {
       T->Kind = TK_KEYWORD;
     }
   }
 }
 
 // 终结符解析
-Token *tokenize(char *P) {
+Token *tokenize(char *P)
+{
   CurrentInput = P;
   Token Head = {};
   Token *Cur = &Head;
 
-  while (*P) {
+  while (*P)
+  {
     // 跳过所有空白符如：空格、回车
-    if (isspace(*P)) {
+    if (isspace(*P))
+    {
       ++P;
       continue;
     }
 
     // 解析数字
-    if (isdigit(*P)) {
+    if (isdigit(*P))
+    {
       // 初始化，类似于C++的构造函数
       // 我们不使用Head来存储信息，仅用来表示链表入口，这样每次都是存储在Cur->Next
       // 否则下述操作将使第一个Token的地址不在Head中。
@@ -153,7 +188,8 @@ Token *tokenize(char *P) {
 
     // 解析操作符
     int PunctLen = readPunct(P);
-    if (PunctLen) {
+    if (PunctLen)
+    {
       Cur->Next = newToken(TK_PUNCT, P, P + PunctLen);
       Cur = Cur->Next;
       // 指针前进Punct的长度位
@@ -163,16 +199,17 @@ Token *tokenize(char *P) {
 
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
-    if(isIdent_char(*P)){
+    if (isIdent_char(*P))
+    {
       char *Start = P;
-      do{
+      do
+      {
         ++P;
-      }while(isIdent_charnum(*P));
+      } while (isIdent_charnum(*P));
       Cur->Next = newToken(TK_IDENT, Start, P);
       Cur = Cur->Next;
       continue;
     }
-
 
     // 处理无法识别的字符
     errorAt(P, "invalid token");
