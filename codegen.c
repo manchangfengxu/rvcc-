@@ -142,44 +142,81 @@ static void genExpr(Node *Nd)
   error("invalid expression");
 }
 
+// 生成语句
 static void genStmt(Node *Nd)
 {
-  int C = 0;
   switch (Nd->Kind)
   {
+  // 生成if语句
   case ND_IF:
-    C = count();
+  {
+    // 代码段计数
+    int C = count();
+    // 生成条件内语句
     genExpr(Nd->Cond);
+    // 判断结果是否为0，为0则跳转到else标签
     printf("  beqz a0, .L.else.%d\n", C);
+    // 生成符合条件后的语句
     genStmt(Nd->Then);
+    // 执行完后跳转到if语句后面的语句
     printf("  j .L.end.%d\n", C);
+    // else代码块，else可能为空，故输出标签
     printf(".L.else.%d:\n", C);
+    // 生成不符合条件后的语句
     if (Nd->Els)
-    {
       genStmt(Nd->Els);
-    }
+    // 结束if语句，继续执行后面的语句
     printf(".L.end.%d:\n", C);
     return;
+  }
+  // 生成for或while循环语句
+  case ND_FOR:
+  {
+    // 代码段计数
+    int C = count();
+    // 初始化语句
+    if (Nd->Init)
+      genStmt(Nd->Init);
+    // 循环begin标签
+    printf(".L.begin.%d:\n", C);
+    // 循环条件语句
+    if (Nd->Cond)
+    {
+      genExpr(Nd->Cond);
+      // 判断结果是否为0，为0则跳转到end标签
+      printf("  beqz a0, .L.end.%d\n", C);
+    }
+    // 生成for循环内语句
+    genStmt(Nd->Then);
+    // 递增语句
+    if (Nd->Inc)
+      genExpr(Nd->Inc);
+    // 无条件跳转到begin标签
+    printf("  j .L.begin.%d\n", C);
+    // 循环end标签
+    printf(".L.end.%d:\n", C);
+    return;
+  }
   // 生成代码块，遍历代码块的语句链表
   case ND_BLOCK:
     for (Node *N = Nd->Body; N; N = N->Next)
-    {
       genStmt(N);
-    }
     return;
-    // 生成return语句
+  // 生成return语句
   case ND_RETURN:
     genExpr(Nd->LHS);
     // 无条件跳转语句，跳转到.L.return段
     // j offset是 jal x0, offset的别名指令
     printf("  j .L.return\n");
     return;
+  // 生成表达式语句
   case ND_EXPR_STMT:
     genExpr(Nd->LHS);
     return;
   default:
     break;
   }
+
   error("invalid statement");
 }
 
