@@ -74,6 +74,18 @@ Token *skip(Token *Tok, char *Str)
   return Tok->Next;
 }
 
+//消耗掉指定Tok
+bool consume(Token **Rest, Token *Tok, char *Str){
+  //存在
+  if(equal(Tok, Str)){
+    *Rest = Tok->Next;
+    return true;
+  }
+  //不存在
+  *Rest = Tok;
+  return false;
+}
+
 // 返回TK_NUM的值
 static int getNumber(Token *Tok)
 {
@@ -119,7 +131,9 @@ static bool isIdent_charnum(char C)
 static int readPunct(char *Ptr)
 {
   // 判断2字节的操作符
-  if (startsWith(Ptr, "==") || startsWith(Ptr, "!=") || startsWith(Ptr, "<=") ||
+  if (startsWith(Ptr, "==") || 
+      startsWith(Ptr, "!=") || 
+      startsWith(Ptr, "<=") ||
       startsWith(Ptr, ">="))
     return 2;
 
@@ -130,7 +144,8 @@ static int readPunct(char *Ptr)
 // 判断是否为关键在
 static bool isKeyword(Token *Tok)
 {
-  static char *Kw[] = {"return", "if", "else", "for", "while"};
+  static char *Kw[] = {"return", "if", "else", "for", "while"
+  , "int"};
 
   // 遍历关键字列表匹配
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I)
