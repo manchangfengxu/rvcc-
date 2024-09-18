@@ -3,8 +3,11 @@
 // 记录栈深度
 static int Depth;
 
+// 生成表达式
+static void genExpr(Node *Nd);
 // 代码段计数
-static int count(void) {
+static int count(void)
+{
   static int I = 1;
   return I++;
 }
@@ -13,7 +16,8 @@ static int count(void) {
 // sp为栈指针，栈反向向下增长，64位下，8个字节为一个单位，所以sp-8
 // 当前栈指针的地址就是sp，将a0的值压入栈
 // 不使用寄存器存储的原因是因为需要存储的值的数量是变化的。
-static void push(void) {
+static void push(void)
+{
   printf("  # 压栈，将a0的值存入栈顶\n");
   printf("  addi sp, sp, -8\n");
   printf("  sd a0, 0(sp)\n");
@@ -21,7 +25,8 @@ static void push(void) {
 }
 
 // 弹栈，将sp指向的地址的值，弹出到a1
-static void pop(char *Reg) {
+static void pop(char *Reg)
+{
   printf("  # 弹栈，将栈顶的值存入%s\n", Reg);
   printf("  ld %s, 0(sp)\n", Reg);
   printf("  addi sp, sp, 8\n");
@@ -29,29 +34,43 @@ static void pop(char *Reg) {
 }
 
 // 对齐到Align的整数倍
-static int alignTo(int N, int Align) {
+static int alignTo(int N, int Align)
+{
   // (0,Align]返回Align
   return (N + Align - 1) / Align * Align;
 }
 
 // 计算给定节点的绝对地址
 // 如果报错，说明节点不在内存中
-static void genAddr(Node *Nd) {
-  if (Nd->Kind == ND_VAR) {
-    // 偏移量是相对于fp的
+static void genAddr(Node *Nd)
+{
+  switch (Nd->Kind)
+  {
+    // 变量
+  case ND_VAR:
     printf("  # 获取变量%s的栈内地址为%d(fp)\n", Nd->Var->Name,
            Nd->Var->Offset);
     printf("  addi a0, fp, %d\n", Nd->Var->Offset);
     return;
+    break;
+
+  // 解引用*
+  case ND_DEREF:
+    genExpr(Nd->LHS);
+    return;
+  default:
+    break;
   }
 
   errorTok(Nd->Tok, "not an lvalue");
 }
 
 // 生成表达式
-static void genExpr(Node *Nd) {
+static void genExpr(Node *Nd)
+{
   // 生成各个根节点
-  switch (Nd->Kind) {
+  switch (Nd->Kind)
+  {
   // 加载数字到a0
   case ND_NUM:
     printf("  # 将%d加载到a0中\n", Nd->Val);
@@ -71,6 +90,15 @@ static void genExpr(Node *Nd) {
     // 访问a0地址中存储的数据，存入到a0当中
     printf("  # 读取a0中存放的地址，得到的值存入a0\n");
     printf("  ld a0, 0(a0)\n");
+    return;
+  case ND_DEREF:
+    genExpr(Nd->LHS);
+    printf("  # 读取a0中存放的地址，得到的值存入a0\n");
+    printf("  ld a0, 0(a0)\n");
+    return;
+    // 取地址
+  case ND_ADDR:
+    genAddr(Nd->LHS);
     return;
   // 赋值
   case ND_ASSIGN:
@@ -97,7 +125,8 @@ static void genExpr(Node *Nd) {
   pop("a1");
 
   // 生成各个二叉树节点
-  switch (Nd->Kind) {
+  switch (Nd->Kind)
+  {
   case ND_ADD: // + a0=a0+a1
     printf("  # a0+a1，结果写入a0\n");
     printf("  add a0, a0, a1\n");
@@ -150,10 +179,13 @@ static void genExpr(Node *Nd) {
 }
 
 // 生成语句
-static void genStmt(Node *Nd) {
-  switch (Nd->Kind) {
+static void genStmt(Node *Nd)
+{
+  switch (Nd->Kind)
+  {
   // 生成if语句
-  case ND_IF: {
+  case ND_IF:
+  {
     // 代码段计数
     int C = count();
     printf("\n# =====分支语句%d==============\n", C);
@@ -182,12 +214,14 @@ static void genStmt(Node *Nd) {
     return;
   }
   // 生成for或while循环语句
-  case ND_FOR: {
+  case ND_FOR:
+  {
     // 代码段计数
     int C = count();
     printf("\n# =====循环语句%d===============\n", C);
     // 生成初始化语句
-    if (Nd->Init) {
+    if (Nd->Init)
+    {
       printf("\n# Init语句%d\n", C);
       genStmt(Nd->Init);
     }
@@ -196,7 +230,8 @@ static void genStmt(Node *Nd) {
     printf(".L.begin.%d:\n", C);
     // 处理循环条件语句
     printf("# Cond表达式%d\n", C);
-    if (Nd->Cond) {
+    if (Nd->Cond)
+    {
       // 生成条件循环语句
       genExpr(Nd->Cond);
       // 判断结果是否为0，为0则跳转到结束部分
@@ -207,7 +242,8 @@ static void genStmt(Node *Nd) {
     printf("\n# Then语句%d\n", C);
     genStmt(Nd->Then);
     // 处理循环递增语句
-    if (Nd->Inc) {
+    if (Nd->Inc)
+    {
       printf("\n# Inc语句%d\n", C);
       // 生成循环递增语句
       genExpr(Nd->Inc);
@@ -246,10 +282,12 @@ static void genStmt(Node *Nd) {
 }
 
 // 根据变量的链表计算出偏移量
-static void assignLVarOffsets(Function *Prog) {
+static void assignLVarOffsets(Function *Prog)
+{
   int Offset = 0;
   // 读取所有变量
-  for (Obj *Var = Prog->Locals; Var; Var = Var->Next) {
+  for (Obj *Var = Prog->Locals; Var; Var = Var->Next)
+  {
     // 每个变量分配8字节
     Offset += 8;
     // 为每个变量赋一个偏移量，或者说是栈中地址
@@ -260,7 +298,8 @@ static void assignLVarOffsets(Function *Prog) {
 }
 
 // 代码生成入口函数，包含代码块的基础信息
-void codegen(Function *Prog) {
+void codegen(Function *Prog)
+{
   assignLVarOffsets(Prog);
   printf("  # 定义全局main段\n");
   printf("  .globl main\n");
@@ -311,4 +350,3 @@ void codegen(Function *Prog) {
   printf("  # 返回a0值给系统调用\n");
   printf("  ret\n");
 }
-
