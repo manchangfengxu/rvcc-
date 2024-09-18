@@ -3,7 +3,11 @@
 ### track
 1,
 // program = "{" compoundStmt
-// compoundStmt = stmt* "}"
+// compoundStmt = (declaration | stmt)* "}"
+// declaration =
+//    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declspec = "int"
+// declarator = "*"* ident
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
@@ -17,12 +21,14 @@
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-") unary | primary
+// unary = ("+" | "-" | "*" | "&") unary | primary
 // primary = "(" expr ")" | ident | num
 
 2,
-### 
-    用local指向本地变量链表头Z
+### add
+对newBinary创造add，sub节点进行封装，进行ptr，int，if条件判定实现指针运算符，当涉及ptr +- num时，建立乘法节点实现ptr +- num*8（8位）。
+ptr - ptr同理，建立除法节点实现(ptr - ptr)/8。
+
 ## codegen.c
 ### 以{a = 3; a;}举例
 ``` s

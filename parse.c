@@ -4,7 +4,11 @@
 Obj *Locals;
 
 // program = "{" compoundStmt
-// compoundStmt = stmt* "}"
+// compoundStmt = (declaration | stmt)* "}"
+// declaration =
+//    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
+// declspec = "int"
+// declarator = "*"* ident
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
@@ -182,6 +186,8 @@ static Node *compoundStmt(Token **Rest, Token *Tok) {
   while (!equal(Tok, "}")) {
     Cur->Next = stmt(&Tok, Tok);
     Cur = Cur->Next;
+    // 构造完AST后，为节点添加类型信息
+    addType(Cur);
   }
 
   // Nd的Body存储了{}内解析的语句
@@ -292,6 +298,68 @@ static Node *relational(Token **Rest, Token *Tok) {
   }
 }
 
+Node *newAdd(Node *LHS, Node *RHS, Token *Tok) {
+  //为左右节点添加类型
+  addType(LHS);
+  addType(RHS);
+
+  //num + num
+  if(isInteger(LHS->Ty) && isInteger(RHS->Ty)){
+    return newBinary(ND_ADD, LHS, RHS, Tok);
+  }
+
+  //不能解析ptr + ptr
+  if(LHS->Ty->Base && RHS->Ty->Base){
+    errorTok(Tok, "invalid operands");
+  }
+
+  //将num + ptr转为ptr + num
+  if(!LHS->Ty->Base && LHS->Ty->Base){
+    Node *Tmp = LHS;
+    LHS = RHS;
+    RHS = Tmp;
+  }
+
+  //ptr + num
+  //指针加法，ptr+1，加一个元素的空间，需要乘8
+  //在相加之前建立一个乘8的节点
+  RHS = newBinary(ND_MUL, RHS, newNum(8,Tok), Tok);
+  return newBinary(ND_ADD, LHS, RHS, Tok);
+}
+
+//解析各种解法
+static Node *newSub(Node *LHS, Node *RHS, Token *Tok){
+  //为左右部添加类型
+  addType(LHS);
+  addType(RHS);
+
+  //num - num
+  if(isInteger(LHS->Ty) && isInteger(RHS->Ty)){
+    return newBinary(ND_SUB, LHS, RHS, Tok);
+  }
+
+  //ptr - num
+  if(LHS->Ty->Base && isInteger(RHS->Ty)){
+    RHS = newBinary(ND_MUL, RHS, newNum(8,Tok), Tok);
+    addType(RHS);
+    Node *Nd = newBinary(ND_SUB, LHS, RHS, Tok);
+    //节点类型为指针
+    Nd->Ty = LHS->Ty;
+    return Nd;
+  }
+
+  //ptr - ptr,返回两指针间有多少元素
+  //在相减之前建立一个乘8的节点
+  if(LHS->Ty->Base && RHS->Ty->Base){
+    Node *Nd = newBinary(ND_SUB, LHS, RHS, Tok);
+    Nd->Ty = TyInt;
+    return newBinary(ND_DIV, Nd, newNum(8, Tok), Tok);
+  }
+
+  errorTok(Tok, "invalid operands");
+  return NULL;
+}
+
 // 解析加减
 // add = mul ("+" mul | "-" mul)*
 static Node *add(Token **Rest, Token *Tok) {
@@ -304,13 +372,13 @@ static Node *add(Token **Rest, Token *Tok) {
 
     // "+" mul
     if (equal(Tok, "+")) {
-      Nd = newBinary(ND_ADD, Nd, mul(&Tok, Tok->Next), Start);
+      Nd = newAdd(Nd, mul(&Tok, Tok->Next), Start);
       continue;
     }
 
     // "-" mul
     if (equal(Tok, "-")) {
-      Nd = newBinary(ND_SUB, Nd, mul(&Tok, Tok->Next), Start);
+      Nd = newSub(Nd, mul(&Tok, Tok->Next), Start);
       continue;
     }
 
