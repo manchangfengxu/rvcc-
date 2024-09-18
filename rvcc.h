@@ -47,6 +47,7 @@ void errorTok(Token *Tok, char *Fmt, ...);
 // 判断Token与Str的关系
 bool equal(Token *Tok, char *Str);
 Token *skip(Token *Tok, char *Str);
+bool consume(Token **Rest, Token *Tok, char *Str);
 // 词法分析
 Token *tokenize(char *Input);
 
@@ -60,11 +61,11 @@ typedef struct Type Type;
 // 本地变量
 typedef struct Obj Obj;
 
-struct Obj
-{
-  Obj *Next;
-  char *Name;
-  int Offset;
+struct Obj {
+  Obj *Next;  // 指向下一对象
+  char *Name; // 变量名
+  Type *Ty;   // 变量类型
+  int Offset; // fp的偏移量
 };
 
 // 函数
@@ -139,7 +140,12 @@ typedef enum {
 
 struct Type {
   TypeKind Kind; // 种类
+
+  //指针
   Type *Base;    // 指向的类型
+
+  //变量名
+  Token *Name;
 };
 
 // 声明一个全局变量，定义在type.c中。
@@ -147,6 +153,8 @@ extern Type *TyInt;
 
 // 判断是否为整型
 bool isInteger(Type *TY);
+// 构建一个指针类型，并指向基类
+Type *pointerTo(Type *Base);
 // 为节点内的所有节点添加类型
 void addType(Node *Nd);
 //
