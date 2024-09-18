@@ -54,7 +54,7 @@ static void genAddr(Node *Nd)
     return;
     break;
 
-  // 解引用*
+  // (递归)解引用*
   case ND_DEREF:
     genExpr(Nd->LHS);
     return;
