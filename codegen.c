@@ -327,10 +327,8 @@ static void assignLVarOffsets(Function *Prog)
 }
 
 // 代码生成入口函数，包含代码块的基础信息
-void codegen(Function *Prog)
-{
+void codegen(Function *Prog) {
   assignLVarOffsets(Prog);
-
 
   // 为每个函数单独生成代码
   for (Function *Fn = Prog; Fn; Fn = Fn->Next) {
@@ -340,6 +338,7 @@ void codegen(Function *Prog)
     printf("# %s段标签\n", Fn->Name);
     printf("%s:\n", Fn->Name);
     CurrentFn = Fn;
+
     // 栈布局
     //-------------------------------// sp
     //              ra
@@ -350,6 +349,7 @@ void codegen(Function *Prog)
     //-------------------------------// sp = sp-16-StackSize
     //           表达式计算
     //-------------------------------//
+
     // Prologue, 前言
     // 将ra寄存器压栈,保存ra的值
     printf("  # 将ra寄存器压栈,保存ra的值\n");
@@ -361,9 +361,16 @@ void codegen(Function *Prog)
     // 将sp写入fp
     printf("  # 将sp的值写入fp\n");
     printf("  mv fp, sp\n");
+
     // 偏移量为实际变量所用的栈大小
     printf("  # sp腾出StackSize大小的栈空间\n");
     printf("  addi sp, sp, -%d\n", Fn->StackSize);
+
+    int I = 0;
+    for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
+      printf("  # 将%s寄存器的值存入%s的栈地址\n", ArgReg[I], Var->Name);
+      printf("  sd %s, %d(fp)\n", ArgReg[I++], Var->Offset);
+    }
 
     // 生成语句链表的代码
     printf("# =====%s段主体===============\n", Fn->Name);
