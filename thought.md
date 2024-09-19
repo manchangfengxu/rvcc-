@@ -31,6 +31,7 @@
 
 ## FUNCTION
 ident的Token后面是"(",则为FUNCTION.
+Ty->Name, Fn->Name, Node->Name
 要为函数返回地址保留栈空间，ra寄存器。
 
 ## codegen.c

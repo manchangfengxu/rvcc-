@@ -124,7 +124,7 @@ static bool isIdent_char(char C)
 // [a-zA-Z0-9_]
 static bool isIdent_charnum(char C)
 {
-  return ('1' <= C && C <= '9') || isIdent_char(C);
+  return ('0' <= C && C <= '9') || isIdent_char(C);
 }
 
 // 读取操作符
@@ -158,12 +158,12 @@ static bool isKeyword(Token *Tok)
   return false;
 }
 
-// 将名为“return”的终结符转为KEYWORD
+// 终结符转为KEYWORD
 static void convertKeywords(Token *Tok)
 {
   for (Token *T = Tok; T->Kind != TK_EOF; T = T->Next)
   {
-    if (isKeyword(Tok))
+    if (isKeyword(T))
     {
       T->Kind = TK_KEYWORD;
     }
@@ -201,17 +201,6 @@ Token *tokenize(char *P)
       continue;
     }
 
-    // 解析操作符
-    int PunctLen = readPunct(P);
-    if (PunctLen)
-    {
-      Cur->Next = newToken(TK_PUNCT, P, P + PunctLen);
-      Cur = Cur->Next;
-      // 指针前进Punct的长度位
-      P += PunctLen;
-      continue;
-    }
-
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
     if (isIdent_char(*P))
@@ -223,6 +212,17 @@ Token *tokenize(char *P)
       } while (isIdent_charnum(*P));
       Cur->Next = newToken(TK_IDENT, Start, P);
       Cur = Cur->Next;
+      continue;
+    }
+
+    // 解析操作符
+    int PunctLen = readPunct(P);
+    if (PunctLen)
+    {
+      Cur->Next = newToken(TK_PUNCT, P, P + PunctLen);
+      Cur = Cur->Next;
+      // 指针前进Punct的长度位
+      P += PunctLen;
       continue;
     }
 
