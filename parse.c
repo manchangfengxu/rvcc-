@@ -7,7 +7,9 @@ Obj *Locals;
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = "int"
 // declarator = "*"* ident typeSuffix
-// typeSuffix = ("(" ")")?
+// typeSuffix = ("(" funcParams? ")")?
+// funcParams = param ("," param)*
+// param = declspec declarator
 
 // compoundStmt = (declaration | stmt)* "}"
 // declaration =
@@ -127,14 +129,40 @@ static Type *declspec(Token **Rest, Token *Tok)
   return TyInt;
 }
 
-// typeSuffix = ("(" ")")?
-//判断ident后有没有括号，（是不是函数），有则跳过括号返回函数返回值类型
+// typeSuffix = ("(" funcParams? ")")?
+// funcParams = param ("," param)*
+// param = declspec declarator
+//解析声明与函数（包括参数）将各种Ty数据存入Fn_Ty
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty){
-  // ("(" ")")?
+  // ("(" funcParams? ")")?
   if(equal(Tok, "(")){
-    *Rest = skip(Tok->Next, ")");
-    return funcType(Ty);
+    Tok = Tok->Next;
+
+    //存储形参列表
+    Type Head = {};
+    Type *Cur = &Head;
+
+    while(!equal(Tok, ")")){
+      // funcParams = param ("," param)*
+      // param = declspec declarator
+      if(Cur != &Head)  
+        Tok = skip(Tok, ",");
+
+      Type *BaseTy = declspec(&Tok, Tok);
+      Type *DeclarTy = declarator(&Tok, Tok, BaseTy);
+      // 将类型复制到形参链表一份
+      Cur->Next = copyType(DeclarTy);
+      Cur = Cur->Next;
+    }
+
+    //封装一个函数的节点
+    Ty = funcType(Ty);
+    //传递形参
+    Ty->Params = Head.Next;
+    *Rest = Tok->Next;
+    return Ty;
   }
+
   *Rest = Tok;
   return Ty;
 
@@ -669,6 +697,17 @@ static Node *primary(Token **Rest, Token *Tok)
   return NULL;
 }
 
+// 将形参添加到Locals
+static void createParamLVars(Type *Param){
+  if(Param){
+    // 递归到形参最底部
+    // 先将最底部的加入Locals中，之后的都逐个加入到顶部，保持顺序不变
+    createParamLVars(Param->Next);
+    // 添加到Locals中
+    newLVar(getIdent(Param->Name), Param);
+  }
+}
+
 // functionDefinition = declspec declarator "{" compoundStmt*
 static Function *function(Token **Rest, Token *Tok){
   //declspec
@@ -681,6 +720,9 @@ static Function *function(Token **Rest, Token *Tok){
   Function *Fn = calloc(1, sizeof(Function));
   //从Ty中读取函数名
   Fn->Name = getIdent(Ty->Name);
+  //函数参数
+  createParamLVars(Ty->Params);
+  Fn->Params = Locals;
   //跳过{
   Tok = skip(Tok, "{");
   //对函数内进行解析（传参Rest，已经更新至少上一级函数Tok）
