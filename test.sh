@@ -1,19 +1,45 @@
-assert(){
-    expected="$1"
-    input="$2"
-    ./rvcc "$input" > tmp.s || exit
+#!/bin/bash
 
-    riscv64-unknown-linux-gnu-gcc -static -o tmp tmp.s
-    qemu-riscv64 -L $RISCV/sysroot ./tmp
+# 将下列代码编译为tmp2.o，"-xc"强制以c语言进行编译
+cat <<EOF | riscv64-unknown-linux-gnu-gcc -xc -c -o tmp2.o -
+int ret3() { return 3; }
+int ret5() { return 5; }
+int add(int x, int y) { return x+y; }
+int sub(int x, int y) { return x-y; }
+int add6(int a, int b, int c, int d, int e, int f) {
+  return a+b+c+d+e+f;
+}
+EOF
 
-    actual="$?"
-    if [ "$actual" = "$expected" ]; then
-        echo "$input => $actual"
-    else
-        echo "$input => $expected expected, but got $actual"
-        exit 1
-    fi
+# 声明一个函数
+assert() {
+  # 程序运行的 期待值 为参数1
+  expected="$1"
+  # 输入值 为参数2
+  input="$2"
 
+  # 运行程序，传入期待值，将生成结果写入tmp.s汇编文件。
+  # 如果运行不成功，则会执行exit退出。成功时会短路exit操作
+  ./rvcc "$input" > tmp.s || exit
+  # 编译rvcc产生的汇编文件
+  # gcc -static -o tmp tmp.s tmp2.o
+  riscv64-unknown-linux-gnu-gcc -static -o tmp tmp.s tmp2.o
+
+  # 运行生成出来目标文件
+  # ./tmp
+  qemu-riscv64 -L $RISCV/sysroot ./tmp
+  # $RISCV/bin/spike --isa=rv64gc $RISCV/riscv64-unknown-linux-gnu/bin/pk ./tmp
+
+  # 获取程序返回值，存入 实际值
+  actual="$?"
+
+  # 判断实际值，是否为预期值
+  if [ "$actual" = "$expected" ]; then
+    echo "$input => $actual"
+  else
+    echo "$input => $expected expected, but got $actual"
+    exit 1
+  fi
 }
 
 # assert 期待值 输入值
@@ -113,6 +139,18 @@ assert 7 '{ int x=3; int y=5; *(&x+1)=7; return y; }'
 # [22] 支持int关键字
 assert 8 '{ int x, y; x=3; y=5; return x+y; }'
 assert 8 '{ int x=3, y=5; return x+y; }'
+
+# [23] 支持零参函数调用
+assert 3 '{ return ret3(); }'
+assert 5 '{ return ret5(); }'
+assert 8 '{ return ret3()+ret5(); }'
+
+# [24] 支持最多6个参数的函数调用
+assert 8 '{ return add(3, 5); }'
+assert 2 '{ return sub(5, 3); }'
+assert 21 '{ return add6(1,2,3,4,5,6); }'
+assert 66 '{ return add6(1,2,add6(3,4,5,6,7,8),9,10,11); }'
+assert 136 '{ return add6(1,2,add6(3,add6(4,5,6,7,8,9),10,11,12,13),14,15,16); }'
 
 # 如果运行正常未提前退出，程序将显示OK
 echo OK

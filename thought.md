@@ -26,8 +26,12 @@
 
 2,
 ### declaration
-声明语句与stmt等价。声明可以声明时赋值。
-对多重指针进行解析。
+声明语句与stmt等价。声明可以声明时赋值。对多重指针进行解析。
+例如int a,b=3;
+
+## FUNCTION
+ident的Token后面是"(",则为FUNCTION.
+要为函数返回地址保留栈空间，ra寄存器。
 
 ## codegen.c
 

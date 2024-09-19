@@ -2,6 +2,8 @@
 
 // 记录栈深度
 static int Depth;
+// 用于函数参数的寄存器们
+static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5"};
 
 // 生成表达式
 static void genExpr(Node *Nd);
@@ -111,6 +113,26 @@ static void genExpr(Node *Nd)
     printf("  # 将a0的值，写入到a1中存放的地址\n");
     printf("  sd a0, 0(a1)\n");
     return;
+    //函数调用
+  case ND_FUNCALL:{
+    //记录参数个数
+    int NArgs = 0;
+    // 计算所有参数的值，正向压栈
+    for(Node *Arg = Nd->Args; Arg; Arg = Arg->Next){
+      genExpr(Arg);
+      push();
+      NArgs++;
+    }
+
+    // 反向弹栈，a0->参数1，a1->参数2……
+    for(int i = NArgs - 1; i >= 0; i--)
+      pop(ArgReg[i]);
+    
+    // 调用函数
+    printf("  # 调用%s函数\n", Nd->FuncName);
+    printf("  call %s\n", Nd->FuncName);
+    return;
+    }
   default:
     break;
   }
@@ -309,17 +331,23 @@ void codegen(Function *Prog)
 
   // 栈布局
   //-------------------------------// sp
+  //              ra
+  //-------------------------------// ra = sp-8
   //              fp
-  //-------------------------------// fp = sp-8
+  //-------------------------------// fp = sp-16
   //             变量
-  //-------------------------------// sp = sp-8-StackSize
+  //-------------------------------// sp = sp-16-StackSize
   //           表达式计算
   //-------------------------------//
 
   // Prologue, 前言
+  // 将ra寄存器压栈,保存ra的值
+  // 将ra寄存器压栈,保存ra的值
+  printf("  # 将ra寄存器压栈,保存ra的值\n");
+  printf("  addi sp, sp, -16\n");
+  printf("  sd ra, 8(sp)\n");
   // 将fp压入栈中，保存fp的值
   printf("  # 将fp压栈，fp属于“被调用者保存”的寄存器，需要恢复原值\n");
-  printf("  addi sp, sp, -8\n");
   printf("  sd fp, 0(sp)\n");
   // 将sp写入fp
   printf("  # 将sp的值写入fp\n");
@@ -345,7 +373,10 @@ void codegen(Function *Prog)
   // 将最早fp保存的值弹栈，恢复fp。
   printf("  # 将最早fp保存的值弹栈，恢复fp和sp\n");
   printf("  ld fp, 0(sp)\n");
-  printf("  addi sp, sp, 8\n");
+  // 将ra寄存器弹栈,恢复ra的值
+  printf("  # 将ra寄存器弹栈,恢复ra的值\n");
+  printf("  ld ra, 8(sp)\n");
+  printf("  addi sp, sp, 16\n");
   // 返回
   printf("  # 返回a0值给系统调用\n");
   printf("  ret\n");
