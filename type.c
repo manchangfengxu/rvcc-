@@ -85,10 +85,13 @@ void addType(Node *Nd) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
-  case ND_VAR:
   case ND_NUM:
   case ND_FUNCALL:
     Nd->Ty = TyInt;
+    return;
+  // 将节点类型设为 变量的类型
+  case ND_VAR:
+    Nd->Ty = Nd->Var->Ty;
     return;
   // 将节点类型设为 指针，并指向左部的类型
   case ND_ADDR:{
