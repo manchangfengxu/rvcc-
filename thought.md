@@ -29,12 +29,14 @@
 声明语句与stmt等价。声明可以声明时赋值。对多重指针进行解析。
 例如int a,b=3;
 
-## FUNCTION
+### FUNCTION
 ident的Token后面是"(",则为FUNCTION.
 Ty->Name, Fn->Name, Node->Name
 要为函数返回地址保留栈空间，ra寄存器。
 
 分析后先存入Ty，（returnTy，param等）再分析Ty存入Function
+### PRIMARY
+primary函数可识别标识符，如函数调用，变量
 
 ## codegen.c
 
