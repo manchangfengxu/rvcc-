@@ -7,7 +7,7 @@ Obj *Locals;
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = "int"
 // declarator = "*"* ident typeSuffix
-// typeSuffix = "(" funcParams | "[" num "]" | ε
+// typeSuffix = "(" funcParams | "[" num "]" typeSuffix | ε
 // funcParams = (param ("," param)*)? ")"
 // param = declspec declarator
 
@@ -162,7 +162,7 @@ static Type *funcParams(Token **Rest, Token *Tok, Type *Ty){
   return Ty;
 }
 
-// typeSuffix = ("(" funcParams? ")")?
+// typeSuffix = "(" funcParams | "[" num "]" typeSuffix | ε
 static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty){
   // ("(" funcParams? ")")?
   if(equal(Tok, "("))
@@ -170,7 +170,8 @@ static Type *typeSuffix(Token **Rest, Token *Tok, Type *Ty){
 
   if(equal(Tok, "[")){
     int Sz = getNumber(Tok->Next);
-    *Rest = skip(Tok->Next->Next, "]");
+    Tok = skip(Tok->Next->Next, "]");
+    Ty = typeSuffix(Rest, Tok, Ty);
     return arrayOf(Ty, Sz);
   }
 
@@ -202,7 +203,6 @@ static Type *declarator(Token **Rest, Token *Tok, Type *Ty)
 
 // declaration =
 //    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
-// int a, b;
 static Node *declaration(Token **Rest, Token *Tok)
 {
   // declspec
