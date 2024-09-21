@@ -1,10 +1,13 @@
 #include "rvcc.h"
 
 // (Type){...}构造了一个复合字面量，相当于Type的匿名变量。
+//只起到判断类型作用,由其它Type指向
+Type *TyChar = &(Type){TY_CHAR, 1};
 Type *TyInt = &(Type){TY_INT, 8};
 
-// 判断Type是否为int类型
-bool isInteger(Type *Ty) { return Ty->Kind == TY_INT; }
+// 判断Type是否为整数
+bool isInteger(Type *Ty) { return Ty->Kind == TY_CHAR || 
+                                  Ty->Kind == TY_INT; }
 
 //复制类型
 Type *copyType(Type *Ty){

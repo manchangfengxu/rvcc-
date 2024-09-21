@@ -38,6 +38,8 @@ Ty->Name, Fn->Name, Node->Name
 ### PRIMARY
 primary函数可识别标识符，如函数调用，变量
 
+### GLOBAL
+全局变量等价函数
 ## codegen.c
 
 # error
