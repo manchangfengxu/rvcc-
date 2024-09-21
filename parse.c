@@ -1,9 +1,10 @@
 #include "rvcc.h"
 
 // 在解析时，全部的变量实例都被累加到这个列表里。
-Obj *Locals;
+Obj *Locals;  // 局部变量
+Obj *Globals; // 全局变量
 
-// program = functionDefinition*
+// program = (functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = "int"
 // declarator = "*"* ident typeSuffix
@@ -49,7 +50,7 @@ static Node *unary(Token **Rest, Token *Tok);
 static Node *postfix(Token **Rest, Token *Tok);
 static Node *primary(Token **Rest, Token *Tok);
 
-// 通过名称，查找一个本地变量
+// 通过名称，查找一个变量
 static Obj *findVar(Token *Tok)
 {
   // 查找Locals变量中是否存在同名变量
@@ -58,6 +59,15 @@ static Obj *findVar(Token *Tok)
     if (strlen(Var->Name) == Tok->Len &&
         !strncmp(Tok->Loc, Var->Name, Tok->Len))
       return Var;
+
+  // 查找Globals变量中是否存在同名变量
+  for(Obj *Var = Globals; Var; Var = Var->Next){
+    // 判断变量名是否和终结符名长度一致，然后逐字比较。
+    if(strlen(Var->Name) == Tok->Len && 
+        !strncmp(Var->Name, Tok->Loc, Tok->Len))
+      return Var;
+  }
+
   return NULL;
 }
 
@@ -103,15 +113,29 @@ static Node *newVarNode(Obj *Var, Token *Tok)
   return Nd;
 }
 
-// 在链表中新增一个变量
-static Obj *newLVar(char *Name, Type *Ty)
-{
+// 新建变量
+static Obj *newVar(char *Name, Type *Ty) {
   Obj *Var = calloc(1, sizeof(Obj));
   Var->Name = Name;
   Var->Ty = Ty;
+  return Var;
+}
+
+// 在链表中新增一个局部变量
+static Obj *newLVar(char *Name, Type *Ty) {
+  Obj *Var = newVar(Name, Ty);
+  Var->IsLocal = true;
   // 将变量插入头部
   Var->Next = Locals;
   Locals = Var;
+  return Var;
+}
+
+// 在链表中新增一个全局变量(头插法)
+static Obj *newGVar(char *Name, Type *Ty){
+  Obj *Var = newVar(Name, Ty);
+  Var->Next = Globals;
+  Globals = Var;
   return Var;
 }
 
@@ -712,7 +736,7 @@ static Node *primary(Token **Rest, Token *Tok)
 
     // 查找变量
     Obj *Var = findVar(Tok);
-    // 如果变量不存在，就在链表中新增一个变量
+    //如果查找不到则未声明
     if (!Var)
       errorTok(Tok, "undefined variable");
     *Rest = Tok->Next;
@@ -743,38 +767,72 @@ static void createParamLVars(Type *Param){
 }
 
 // functionDefinition = declspec declarator "{" compoundStmt*
-static Function *function(Token **Rest, Token *Tok){
-  //declspec
-  Type *Ty = declspec(&Tok, Tok);
-  // declarator? ident "(" ")"
-  Ty = declarator(&Tok, Tok, Ty);
+//return Tok，反馈Tok更新
+static Token *function(Token *Tok, Type *BaseTy) {
+  Type *Ty = declarator(&Tok, Tok, BaseTy);
+  Obj *Fn = newGVar(getIdent(Ty->Name), Ty);
+  Fn->IsFunction = true;
 
   //清空全局变量（有多个函数，只用于临时存储一个函数）
   Locals = NULL;
-  Function *Fn = calloc(1, sizeof(Function));
-  //从Ty中读取函数名
-  Fn->Name = getIdent(Ty->Name);
+
   //函数参数
   createParamLVars(Ty->Params);
   Fn->Params = Locals;
+
   //跳过{
   Tok = skip(Tok, "{");
   //对函数内进行解析（传参Rest，已经更新至少上一级函数Tok）
-  Fn->Body = compoundStmt(Rest, Tok);
+  Fn->Body = compoundStmt(&Tok, Tok);
   //函数局部变量
   Fn->Locals = Locals;
 
-  return Fn;
+  return Tok;
+}
+
+// 构造全局变量
+static Token *globalVariable(Token *Tok, Type *Basety) {
+  bool First = true;
+
+  while (!consume(&Tok, Tok, ";")) {
+    if (!First)
+      Tok = skip(Tok, ",");
+    First = false;
+
+    Type *Ty = declarator(&Tok, Tok, Basety);
+    newGVar(getIdent(Ty->Name), Ty);
+  }
+  return Tok;
+}
+
+// 区分 函数还是全局变量
+static bool isFunction(Token *Tok) {
+  if (equal(Tok, ";"))
+    return false;
+
+  // 虚设变量，用于调用declarator
+  Type Dummy = {};
+  Type *Ty = declarator(&Tok, Tok, &Dummy);
+  return Ty->Kind == TY_FUNC;
 }
 
 // 语法解析入口函数
-// program = functionDefinition*
-Function *parse(Token *Tok)
-{
-  Function Head = {};
-  Function *Cur = &Head;
+// program = (functionDefinition | globalVariable)*
+Obj *parse(Token *Tok){
+  Globals = NULL;
 
-  while(Tok->Kind != TK_EOF)
-    Cur = Cur->Next = function(&Tok, Tok);
-  return Head.Next;
+  while(Tok->Kind != TK_EOF){
+    Type *BaseTy = declspec(&Tok, Tok);
+
+    //函数
+    if(isFunction(Tok)){
+      Tok = function(Tok, BaseTy);
+      continue;
+    }
+
+    //全局变量
+    Tok = globalVariable(Tok, BaseTy);
+  }
+
+  return Globals;
 }

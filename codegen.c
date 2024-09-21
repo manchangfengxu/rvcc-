@@ -5,7 +5,7 @@ static int Depth;
 // 用于函数参数的寄存器们
 static char *ArgReg[] = {"a0", "a1", "a2", "a3", "a4", "a5"};
 // 当前的函数
-static Function *CurrentFn;
+static Obj *CurrentFn;
 
 // 生成表达式
 static void genExpr(Node *Nd);
@@ -54,11 +54,15 @@ static void genAddr(Node *Nd)
   {
     // 变量
   case ND_VAR:
-    printf("  # 获取变量%s的栈内地址为%d(fp)\n", Nd->Var->Name,
-           Nd->Var->Offset);
-    printf("  addi a0, fp, %d\n", Nd->Var->Offset);
+    if (Nd->Var->IsLocal) { // 偏移量是相对于fp的
+      printf("  # 获取局部变量%s的栈内地址为%d(fp)\n", Nd->Var->Name,
+             Nd->Var->Offset);
+      printf("  addi a0, fp, %d\n", Nd->Var->Offset);
+    } else {
+      printf("  # 获取全局变量%s的地址\n", Nd->Var->Name);
+      printf("  la a0, %s\n", Nd->Var->Name);
+    }
     return;
-    break;
 
   // (递归)解引用*
   case ND_DEREF:
@@ -321,10 +325,13 @@ static void genStmt(Node *Nd)
 }
 
 // 根据变量的链表计算出偏移量
-static void assignLVarOffsets(Function *Prog)
+static void assignLVarOffsets(Obj *Prog)
 {
   //为每个函数变量分配栈空间
-  for(Function *Fn = Prog; Fn; Fn = Fn->Next){
+  for(Obj *Fn = Prog; Fn; Fn = Fn->Next){
+    // 如果不是函数,则终止
+    if(!Fn->IsFunction)
+      continue;
     int Offset = 0;
     //读取所有变量
     for(Obj *Var = Fn->Locals; Var; Var = Var->Next){
@@ -339,14 +346,32 @@ static void assignLVarOffsets(Function *Prog)
   
 }
 
-// 代码生成入口函数，包含代码块的基础信息
-void codegen(Function *Prog) {
-  assignLVarOffsets(Prog);
+static void emitData(Obj *Prog){
+  for(Obj *Var = Prog; Var; Var = Var->Next){
+    if(Var->IsFunction)
+      continue;
 
+    printf("  # 数据段标签\n");
+    printf("  .data\n");
+    printf("  .globl %s\n", Var->Name);
+    printf("  # 全局变量%s\n", Var->Name);
+    printf("%s:\n", Var->Name);
+    printf("  # 零填充%d位\n", Var->Ty->Size);
+    printf("  .zero %d\n", Var->Ty->Size);
+  }
+}
+
+// 代码生成入口函数，包含代码块的基础信息
+void emitText(Obj *Prog) {
   // 为每个函数单独生成代码
-  for (Function *Fn = Prog; Fn; Fn = Fn->Next) {
+  for (Obj *Fn = Prog; Fn; Fn = Fn->Next) {
+    if(!Fn->IsFunction)
+      continue;
     printf("\n  # 定义全局%s段\n", Fn->Name);
     printf("  .globl %s\n", Fn->Name);
+
+    printf("  # 代码段标签\n");
+    printf("  .text\n");
     printf("# =====%s段开始===============\n", Fn->Name);
     printf("# %s段标签\n", Fn->Name);
     printf("%s:\n", Fn->Name);
@@ -378,7 +403,7 @@ void codegen(Function *Prog) {
     // 偏移量为实际变量所用的栈大小
     printf("  # sp腾出StackSize大小的栈空间\n");
     printf("  addi sp, sp, -%d\n", Fn->StackSize);
-
+    //将参数传入被调函数
     int I = 0;
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
       printf("  # 将%s寄存器的值存入%s的栈地址\n", ArgReg[I], Var->Name);
@@ -409,4 +434,13 @@ void codegen(Function *Prog) {
     printf("  # 返回a0值给系统调用\n");
     printf("  ret\n");
   }
+}
+
+void codegen(Obj *Prog) {
+  // 计算局部变量的偏移量
+  assignLVarOffsets(Prog);
+  // 生成数据
+  emitData(Prog);
+  // 生成代码
+  emitText(Prog);
 }
