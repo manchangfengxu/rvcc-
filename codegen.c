@@ -82,7 +82,11 @@ static void load(Type *Ty)
     return;
 
   printf("  # 读取a0中存放的地址，得到的值存入a0\n");
-  printf("  ld a0, 0(a0)\n");
+  if(Ty->Size == 1){
+    printf("  lb a0, 0(a0)\n");
+  }
+  else
+    printf("  ld a0, 0(a0)\n");
 }
 
 // 将栈顶值(为一个地址)存入a0
@@ -407,7 +411,10 @@ void emitText(Obj *Prog) {
     int I = 0;
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
       printf("  # 将%s寄存器的值存入%s的栈地址\n", ArgReg[I], Var->Name);
-      printf("  sd %s, %d(fp)\n", ArgReg[I++], Var->Offset);
+      if (Var->Ty->Size == 1)
+        printf("  sb %s, %d(fp)\n", ArgReg[I++], Var->Offset);
+      else
+        printf("  sd %s, %d(fp)\n", ArgReg[I++], Var->Offset);
     }
 
     // 生成语句链表的代码
