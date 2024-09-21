@@ -1,4 +1,6 @@
 #!/bin/bash
+#riscv64-unknown-linux-gnu-gcc -static -o tmp tmp.s ; 
+#qemu-riscv64 -L $RISCV/sysroot ./tmp ; echo $?
 
 # 将下列代码编译为tmp2.o，"-xc"强制以c语言进行编译
 cat <<EOF | riscv64-unknown-linux-gnu-gcc -xc -c -o tmp2.o -
@@ -43,6 +45,18 @@ assert() {
 }
 
 # assert 期待值 输入值
+# [32] 支持全局变量
+assert 0 'int x; int main() { return x; }'
+assert 3 'int x; int main() { x=3; return x; }'
+assert 7 'int x; int y; int main() { x=3; y=4; return x+y; }'
+assert 7 'int x, y; int main() { x=3; y=4; return x+y; }'
+assert 0 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[0]; }'
+assert 1 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[1]; }'
+assert 2 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[2]; }'
+assert 3 'int x[4]; int main() { x[0]=0; x[1]=1; x[2]=2; x[3]=3; return x[3]; }'
+assert 8 'int x; int main() { return sizeof(x); }'
+assert 32 'int x[4]; int main() { return sizeof(x); }'
+
 # [30] 支持 sizeof
 assert 8 'int main() { int x; return sizeof(x); }'
 assert 8 'int main() { int x; return sizeof x; }'

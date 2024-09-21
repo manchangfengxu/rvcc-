@@ -57,24 +57,23 @@ Token *tokenize(char *Input);
 typedef struct Node Node;
 typedef struct Type Type;
 
-// 本地变量
+// 变量 或 函数
 typedef struct Obj Obj;
 
 struct Obj {
   Obj *Next;  // 指向下一对象
   char *Name; // 变量名
   Type *Ty;   // 变量类型
+  bool IsLocal; // 是 局部或全局 变量
+
+  //局部变量
   int Offset; // fp的偏移量
-};
 
-// 函数
-typedef struct Function Function;
-struct Function
-{
-  Function *Next; // 下一函数
-  char *Name;     // 函数名
+  //函数 或 全局变量
+  bool IsFunction; // 是否为函数
+
+  //函数
   Obj *Params;    // 形参
-
   Node *Body;    // 函数体
   Obj *Locals;   // 本地变量
   int StackSize; // 栈大小
@@ -137,7 +136,7 @@ struct Node
 };
 
 // 语法解析入口函数
-Function *parse(Token *Tok);
+Obj *parse(Token *Tok);
 //
 // 类型系统
 //
@@ -190,4 +189,4 @@ Type *funcType(Type *ReturnTy);
 //
 
 // 代码生成入口函数
-void codegen(Function *Prog);
+void codegen(Obj *Prog);
