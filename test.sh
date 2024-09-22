@@ -45,6 +45,18 @@ assert() {
 
 # assert 期待值 输入值
 
+# [38] 支持十六进制转义字符
+assert 0 'int main() { return "\x00"[0]; }'
+assert 119 'int main() { return "\x77"[0]; }'
+assert 165 'int main() { return "\xA5"[0]; }'
+assert 255 'int main() { return "\x00ff"[0]; }'
+
+# [37] 支持八进制转义字符
+assert 0 'int main() { return "\0"[0]; }'
+assert 16 'int main() { return "\20"[0]; }'
+assert 65 'int main() { return "\101"[0]; }'
+assert 104 'int main() { return "\1500"[0]; }'
+
 # [36] 支持转义字符
 assert 7 'int main() { return "\a"[0]; }'
 assert 8 'int main() { return "\b"[0]; }'
