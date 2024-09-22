@@ -21,6 +21,8 @@ typedef struct Node Node;
 // 终结符分析，词法分析
 //
 
+char *format(char *Fmt, ...);
+
 // 为每个终结符都设置种类来表示
 typedef enum {
   TK_IDENT,   // 标记符，可以为变量名、函数名等
