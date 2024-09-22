@@ -114,7 +114,7 @@ static bool startsWith(char *Str, char *SubStr)
 
 // 判断标记符的首字母规则
 // [a-zA-Z_]
-static bool isIdent_char(char C)
+static bool isIdent1(char C)
 {
   // a-z与A-Z在ASCII中不相连，所以需要分别判断
   return ('a' <= C && C <= 'z') || ('A' <= C && C <= 'Z') || C == '_';
@@ -122,9 +122,9 @@ static bool isIdent_char(char C)
 
 // 判断标记符的非首字母的规则
 // [a-zA-Z0-9_]
-static bool isIdent_charnum(char C)
+static bool isIdent2(char C)
 {
-  return ('0' <= C && C <= '9') || isIdent_char(C);
+  return ('0' <= C && C <= '9') || isIdent1(C);
 }
 
 // 读取操作符
@@ -156,6 +156,24 @@ static bool isKeyword(Token *Tok)
     }
   }
   return false;
+}
+
+//读取字符串字面量
+static Token* readStringLiteral(char *Start){
+  char *P = Start + 1;
+  // 识别字符串内的所有非"字符
+  for(;*P != '"';++P)
+    // 遇到换行符和'\0'则报错
+    if(*P == '\0' || *P == '\n')
+      errorAt(Start, "unclosed string literal");
+
+  Token *Tok = newToken(TK_STR, Start, P + 1);
+  //构建char[]类型
+  Tok->Ty = arrayOf(TyChar, P - Start);
+  // 拷贝双引号间的内容，结果是\0的char *类型
+  Tok->Str = strndup(Start + 1, P - Start - 1);
+  return Tok;
+    
 }
 
 // 终结符转为KEYWORD
@@ -201,15 +219,23 @@ Token *tokenize(char *P)
       continue;
     }
 
+    // 解析字符串字面量
+    if (*P == '"') {
+      Cur->Next = readStringLiteral(P);
+      Cur = Cur->Next;
+      P += Cur->Len;
+      continue;
+    }
+
     // 解析标记符或关键字
     // [a-zA-Z_][a-zA-Z0-9_]*
-    if (isIdent_char(*P))
+    if (isIdent1(*P))
     {
       char *Start = P;
       do
       {
         ++P;
-      } while (isIdent_charnum(*P));
+      } while (isIdent2(*P));
       Cur->Next = newToken(TK_IDENT, Start, P);
       Cur = Cur->Next;
       continue;
