@@ -108,6 +108,7 @@ typedef enum
   ND_BLOCK,     // { ... }，代码块
   ND_FUNCALL,   // 函数调用
   ND_EXPR_STMT, // 表达式语句
+  ND_STMT_EXPR, // 语句表达式
   ND_VAR,       // 变量
   ND_NUM,       // 整形
 } NodeKind;
@@ -130,8 +131,7 @@ struct Node
   Node *Init; // 初始化语句
   Node *Inc;  // 递增语句
   
-  // 代码块
-
+  // 代码块 或 语句表达式
   Node *Body;
 
   //函数调用

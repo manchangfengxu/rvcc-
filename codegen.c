@@ -138,6 +138,11 @@ static void genExpr(Node *Nd)
     genExpr(Nd->RHS);
     store();
     return;
+    // 语句表达式
+  case ND_STMT_EXPR:
+    for(Node *N = Nd->Body; N; N = N->Next)
+      genStmt(N);
+    return;
     //函数调用
   case ND_FUNCALL:{
     //记录参数个数
