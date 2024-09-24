@@ -2,7 +2,6 @@
 
 // 输出文件
 static FILE *OutputFile;
-
 // 记录栈深度
 static int Depth;
 // 用于函数参数的寄存器们
@@ -365,7 +364,6 @@ static void emitData(Obj *Prog) {
       // 打印出字符串的内容，包括转义字符
       for (int I = 0; I < Var->Ty->Size; ++I) {
         char C = Var->InitData[I];
-        //判断字符是否可以打印
         if (isprint(C))
           printLn("  .byte %d\t# 字符：%c", C, C);
         else
@@ -463,6 +461,7 @@ void emitText(Obj *Prog) {
 void codegen(Obj *Prog, FILE *Out) {
   // 设置目标文件的文件流指针
   OutputFile = Out;
+
   // 计算局部变量的偏移量
   assignLVarOffsets(Prog);
   // 生成数据

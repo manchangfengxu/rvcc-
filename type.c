@@ -1,16 +1,14 @@
 #include "rvcc.h"
 
 // (Type){...}构造了一个复合字面量，相当于Type的匿名变量。
-//只起到判断类型作用,由其它Type指向
 Type *TyChar = &(Type){TY_CHAR, 1};
 Type *TyInt = &(Type){TY_INT, 8};
 
 // 判断Type是否为整数
-bool isInteger(Type *Ty) { return Ty->Kind == TY_CHAR || 
-                                  Ty->Kind == TY_INT; }
+bool isInteger(Type *Ty) { return Ty->Kind == TY_CHAR || Ty->Kind == TY_INT; }
 
-//复制类型
-Type *copyType(Type *Ty){
+// 复制类型
+Type *copyType(Type *Ty) {
   Type *Ret = calloc(1, sizeof(Type));
   *Ret = *Ty;
   return Ret;
@@ -62,7 +60,6 @@ void addType(Node *Nd) {
   // 访问链表内的所有节点以增加类型
   for (Node *N = Nd->Body; N; N = N->Next)
     addType(N);
-
   // 访问链表内的所有参数节点以增加类型
   for (Node *N = Nd->Args; N; N = N->Next)
     addType(N);
@@ -97,7 +94,7 @@ void addType(Node *Nd) {
     Nd->Ty = Nd->Var->Ty;
     return;
   // 将节点类型设为 指针，并指向左部的类型
-  case ND_ADDR:{
+  case ND_ADDR: {
     Type *Ty = Nd->LHS->Ty;
     // 左部如果是数组, 则为指向数组基类的指针
     if (Ty->Kind == TY_ARRAY)
@@ -106,21 +103,20 @@ void addType(Node *Nd) {
       Nd->Ty = pointerTo(Ty);
     return;
   }
-  // 节点类型：如果解引用指向的是指针，则为指针指向的类型；否则为int
+  // 节点类型：如果解引用指向的是指针，则为指针指向的类型；否则报错
   case ND_DEREF:
-    // 如果不存在（指向）基类, 则无法解引用
+    // 如果不存在基类, 则无法解引用
     if (!Nd->LHS->Ty->Base)
       errorTok(Nd->Tok, "invalid pointer dereference");
     Nd->Ty = Nd->LHS->Ty->Base;
     return;
   // 节点类型为 最后的表达式语句的类型
   case ND_STMT_EXPR:
-    if(Nd->Body){
+    if (Nd->Body) {
       Node *Stmt = Nd->Body;
-      while(Stmt->Next)
+      while (Stmt->Next)
         Stmt = Stmt->Next;
-
-      if(Stmt->Kind == ND_EXPR_STMT){
+      if (Stmt->Kind == ND_EXPR_STMT) {
         Nd->Ty = Stmt->LHS->Ty;
         return;
       }

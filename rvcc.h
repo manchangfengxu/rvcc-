@@ -19,10 +19,14 @@ typedef struct Type Type;
 typedef struct Node Node;
 
 //
-// 终结符分析，词法分析
+// 字符串
 //
 
 char *format(char *Fmt, ...);
+
+//
+// 终结符分析，词法分析
+//
 
 // 为每个终结符都设置种类来表示
 typedef enum {
@@ -36,8 +40,7 @@ typedef enum {
 
 // 终结符结构体
 typedef struct Token Token;
-struct Token
-{
+struct Token {
   TokenKind Kind; // 种类
   Token *Next;    // 指向下一终结符
   int Val;        // 值
@@ -65,32 +68,30 @@ Token *tokenizeFile(char *Path);
 
 // 变量 或 函数
 typedef struct Obj Obj;
-
 struct Obj {
-  Obj *Next;  // 指向下一对象
-  char *Name; // 变量名
-  Type *Ty;   // 变量类型
+  Obj *Next;    // 指向下一对象
+  char *Name;   // 变量名
+  Type *Ty;     // 变量类型
   bool IsLocal; // 是 局部或全局 变量
 
-  //局部变量
+  // 局部变量
   int Offset; // fp的偏移量
 
-  //函数 或 全局变量
-  bool IsFunction; // 是否为函数
+  // 函数 或 全局变量
+  bool IsFunction;
 
   // 全局变量
   char *InitData;
 
-  //函数
-  Obj *Params;    // 形参
+  // 函数
+  Obj *Params;   // 形参
   Node *Body;    // 函数体
   Obj *Locals;   // 本地变量
   int StackSize; // 栈大小
 };
 
 // AST的节点种类
-typedef enum
-{
+typedef enum {
   ND_ADD,       // +
   ND_SUB,       // -
   ND_MUL,       // *
@@ -103,25 +104,24 @@ typedef enum
   ND_ASSIGN,    // 赋值
   ND_ADDR,      // 取地址 &
   ND_DEREF,     // 解引用 *
-  ND_RETURN,    // return
+  ND_RETURN,    // 返回
   ND_IF,        // "if"，条件判断
-  ND_FOR,       // "for"，循环
+  ND_FOR,       // "for" 或 "while"，循环
   ND_BLOCK,     // { ... }，代码块
   ND_FUNCALL,   // 函数调用
   ND_EXPR_STMT, // 表达式语句
   ND_STMT_EXPR, // 语句表达式
   ND_VAR,       // 变量
-  ND_NUM,       // 整形
+  ND_NUM,       // 数字
 } NodeKind;
 
 // AST中二叉树节点
-struct Node
-{
+struct Node {
   NodeKind Kind; // 节点种类
-  Node *Next;    // 指向下一节点
+  Node *Next;    // 下一节点，指代下一语句
   Token *Tok;    // 节点对应的终结符
   Type *Ty;      // 节点中数据的类型
-  
+
   Node *LHS; // 左部，left-hand side
   Node *RHS; // 右部，right-hand side
 
@@ -131,13 +131,12 @@ struct Node
   Node *Els;  // 不符合条件后的语句
   Node *Init; // 初始化语句
   Node *Inc;  // 递增语句
-  
+
   // 代码块 或 语句表达式
   Node *Body;
 
-  //函数调用
-
-  char *FuncName;//函数名
+  // 函数调用
+  char *FuncName; // 函数名
   Node *Args;     // 函数参数
 
   Obj *Var; // 存储ND_VAR种类的变量
@@ -146,6 +145,7 @@ struct Node
 
 // 语法解析入口函数
 Obj *parse(Token *Tok);
+
 //
 // 类型系统
 //
@@ -153,9 +153,9 @@ Obj *parse(Token *Tok);
 // 类型种类
 typedef enum {
   TY_CHAR,  // char字符类型
-  TY_INT, // int整型
-  TY_PTR, // 指针
-  TY_FUNC, // 函数
+  TY_INT,   // int整型
+  TY_PTR,   // 指针
+  TY_FUNC,  // 函数
   TY_ARRAY, // 数组
 } TypeKind;
 
@@ -163,14 +163,14 @@ struct Type {
   TypeKind Kind; // 种类
   int Size;      // 大小, sizeof返回的值
 
-  //指针
-  Type *Base;    // 指向的类型
+  // 指针
+  Type *Base; // 指向的类型
 
   // 类型对应名称，如：变量名、函数名
   Token *Name;
 
   // 数组
-  int ArrayLen; // 数组长度, 元素总个数  
+  int ArrayLen; // 数组长度, 元素总个数
 
   // 函数类型
   Type *ReturnTy; // 函数返回的类型
@@ -178,7 +178,7 @@ struct Type {
   Type *Next;     // 下一类型
 };
 
-// 声明一个全局变量，定义在type.c中。
+// 声明全局变量，定义在type.c中。
 extern Type *TyChar;
 extern Type *TyInt;
 
