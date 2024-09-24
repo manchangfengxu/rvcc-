@@ -365,6 +365,7 @@ static void emitData(Obj *Prog) {
       // 打印出字符串的内容，包括转义字符
       for (int I = 0; I < Var->Ty->Size; ++I) {
         char C = Var->InitData[I];
+        //判断字符是否可以打印
         if (isprint(C))
           printLn("  .byte %d\t# 字符：%c", C, C);
         else
