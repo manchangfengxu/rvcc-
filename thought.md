@@ -40,6 +40,18 @@ primary函数可识别标识符，如函数调用，变量
 
 ### GLOBAL
 全局变量等价函数
+### Scope
+Scope链表，Scp指针指向当前域
+通过头插法建立和Next操作进入和出域（改变Scp指向）（新域在链表最前）
+将Var放入当前Scope的VarScope里。
+findVar会遍历Scp及其之后的表，找到Var。
+{int x = 2; {x = 3;} return x;}得到的结果是3。
+当进入二级域时{{}}，会遍历到一级域声明的x，并将其赋值为3。
+{int x = 2;{int x = 3;}return x;}结果为2
+二级域{{}}的x会
+
+Next操作回到上一级Scope。
+
 ## codegen.c
 
 # error
