@@ -5,9 +5,17 @@
 // program = "{" compoundStmt
 // compoundStmt = (declaration | stmt)* "}"
 // declaration =
+// program = (functionDefinition | globalVariable)*
+// functionDefinition = declspec declarator "{" compoundStmt*
+// declspec = "char" | "int"
+// declarator = "*"* ident typeSuffix
+// typeSuffix = "(" funcParams | "[" num "]" typeSuffix | ε
+// funcParams = (param ("," param)*)? ")"
+// param = declspec declarator
+
+// compoundStmt = (declaration | stmt)* "}"
+// declaration =
 //    declspec (declarator ("=" expr)? ("," declarator ("=" expr)?)*)? ";"
-// declspec = "int"
-// declarator = "*"* ident
 // stmt = "return" expr ";"
 //        | "if" "(" expr ")" stmt ("else" stmt)?
 //        | "for" "(" exprStmt expr? ";" expr? ")" stmt
@@ -15,14 +23,24 @@
 //        | "{" compoundStmt
 //        | exprStmt
 // exprStmt = expr? ";"
-// expr = assign
+// expr = assign ("," expr)?
 // assign = equality ("=" assign)?
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
 // mul = unary ("*" unary | "/" unary)*
-// unary = ("+" | "-" | "*" | "&") unary | primary
-// primary = "(" expr ")" | ident | num
+// unary = ("+" | "-" | "*" | "&") unary | postfix
+// postfix = primary ("[" expr "]")*
+// primary = "(" "{" stmt+ "}" ")"
+//         | "(" expr ")"
+//         | "sizeof" unary
+//         | ident funcArgs?
+//         | str
+//         | num
+
+// funcall = ident "(" (assign ("," assign)*)? ")"
+
+根据语法解析，就是让上一层语法关键节点指向下一层，而下一层语法解析的返回应该是无法继续解析，equal(Tok,"?");没有对应，而不是检测到某个Tok为？
 
 2,
 ### declaration
@@ -51,6 +69,9 @@ findVar会遍历Scp及其之后的表，找到Var。
 二级域{{}}的x会
 
 Next操作回到上一级Scope。
+
+### ","运算
+","运算，先左遍历再右遍历。","运算可和"="连用,在genAdder时加入","运算
 
 ## codegen.c
 
