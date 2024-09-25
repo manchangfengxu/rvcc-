@@ -158,3 +158,5 @@ static Node *stmt(Token **Rest, Token *Tok)
 */
 ```
 
+# errorThought
+任何变量都要在声明时赋值！！！
