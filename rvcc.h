@@ -165,7 +165,8 @@ typedef enum {
   TY_PTR,   // 指针
   TY_FUNC,  // 函数
   TY_ARRAY, // 数组
-  TY_STRUCT, // 结构体
+  TY_STRUCT,// 结构体
+  TY_UNION, //联合体
 } TypeKind;
 
 struct Type {
