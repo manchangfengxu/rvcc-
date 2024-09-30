@@ -74,6 +74,11 @@ Next操作回到上一级Scope。
 ","运算，先左遍历再右遍历。","运算可和"="连用,在genAdder时加入","运算
 
 ## codegen.c
+### STRUCT
+在实现struct成员变量赋值时，需要对struct地址加上偏移值以精确到成员变量地址。
+### load，store
+load，读取指针内的地址
+store，将a0的值读入a1所指的地址
 
 # error
 ## test.sh
