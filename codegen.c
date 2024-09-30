@@ -94,12 +94,16 @@ static void genAddr(Node *Nd) {
 
 // 加载a0指向的值
 static void load(Type *Ty) {
-  if (Ty->Kind == TY_ARRAY)
+  if (Ty->Kind == TY_ARRAY  ||
+      Ty->Kind == TY_STRUCT ||
+      Ty->Kind == TY_UNION)
     return;
 
   printLn("  # 读取a0中存放的地址，得到的值存入a0");
   if (Ty->Size == 1)
     printLn("  lb a0, 0(a0)");
+  else if(Ty->Size == 4)
+    printLn("lw a0, 0(a0)");
   else
     printLn("  ld a0, 0(a0)");
 }
@@ -108,9 +112,24 @@ static void load(Type *Ty) {
 static void store(Type *Ty) {
   pop("a1");
 
+  if(Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
+    printLn(" #对%s进行赋值", Ty->Kind == TY_STRUCT ? "结构体" : "联合体");
+    for(int I = 0; I < Ty->Size; ++I){
+      printLn(" li t0, %d", I);
+      printLn(" add t0, a0, t0");
+      printLn(" lb t1, 0(t0)");
+
+      printLn(" li t0, %d", I);
+      printLn(" add t0, a1, t0");
+      printLn(" sb t1, 0(t0)");
+    }
+    return;
+  }
   printLn("  # 将a0的值，写入到a1中存放的地址");
   if (Ty->Size == 1)
     printLn("  sb a0, 0(a1)");
+  else if(Ty->Size == 4)
+    printLn("  sw a0, 0(a1)");
   else
     printLn("  sd a0, 0(a1)");
 };
@@ -383,7 +402,7 @@ static void emitData(Obj *Prog) {
       continue;
 
     printLn("\n  # 数据段标签");
-    printLn("  .data");
+    printLn("   .data");
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("%s:", Var->Name);
@@ -403,6 +422,23 @@ static void emitData(Obj *Prog) {
       printLn("  .zero %d", Var->Ty->Size);
     }
   }
+}
+
+// 将整形寄存器的值存入栈中
+static void storeGeneral(int Reg, int Offset, int Size){
+  printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
+  switch(Size){
+    case 1:
+      printLn("  sb %s, %d(fp)", ArgReg[Reg], Offset);
+      return;
+    case 4:
+      printLn("  sw %s, %d(fp)", ArgReg[Reg], Offset);
+      return;
+    case 8:
+      printLn("  sd %s, %d(fp)", ArgReg[Reg], Offset);
+      return;
+  }
+  unreachable();
 }
 
 // 代码生成入口函数，包含代码块的基础信息
@@ -452,11 +488,9 @@ void emitText(Obj *Prog) {
     int I = 0;
     for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
       printLn("  # 将%s寄存器的值存入%s的栈地址", ArgReg[I], Var->Name);
-      if (Var->Ty->Size == 1)
-        printLn("  sb %s, %d(fp)", ArgReg[I++], Var->Offset);
-      else
-        printLn("  sd %s, %d(fp)", ArgReg[I++], Var->Offset);
+      storeGeneral(I++, Var->Offset, Var->Ty->Size);
     }
+    I = 0;
 
     // 生成语句链表的代码
     printLn("# =====%s段主体===============", Fn->Name);
