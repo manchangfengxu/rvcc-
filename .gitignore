@@ -28,6 +28,4 @@ build/
 .cache/
 .vscode/
 
-test.txt
-
-thought.*
+/thought*

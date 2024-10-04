@@ -165,6 +165,7 @@ Obj *parse(Token *Tok);
 // Type类型种类
 typedef enum {
   TY_CHAR,  // char字符类型
+  TY_SHORT,
   TY_INT,   // int整型
   TY_LONG,   // long长整型
   TY_PTR,   // 指针
@@ -209,6 +210,7 @@ struct Member {
 extern Type *TyChar;
 extern Type *TyInt;
 extern Type *TyLong;
+extern Type *TyShort;
 
 // 判断是否为整型
 bool isInteger(Type *TY);
