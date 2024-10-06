@@ -23,7 +23,7 @@ struct Scope {
 
   // C有两个域：变量域，结构体标签域
   VarScope *Vars; // 指向当前域内的变量
-  TagScope *Tags;//指向当前域内的结构体标签
+  TagScope *Tags; //指向当前域内的结构体标签
 };
 
 // 在解析时，全部的变量实例都被累加到这个列表里。
@@ -1022,6 +1022,11 @@ static Token *function(Token *Tok, Type *BaseTy) {
 
   Obj *Fn = newGVar(getIdent(Ty->Name), Ty);
   Fn->IsFunction = true;
+  Fn->IsDefinition = !consume(&Tok, Tok, ";");
+
+  // 判断是否没有函数定义
+  if (!Fn->IsDefinition)
+    return Tok;
 
   // 清空全局变量Locals
   Locals = NULL;
