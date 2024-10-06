@@ -451,7 +451,7 @@ static void storeGeneral(int Reg, int Offset, int Size){
 void emitText(Obj *Prog) {
   // 为每个函数单独生成代码
   for (Obj *Fn = Prog; Fn; Fn = Fn->Next) {
-    if (!Fn->IsFunction)
+    if (!Fn->IsFunction || !Fn->IsDefinition)
       continue;
 
     printLn("\n  # 定义全局%s段", Fn->Name);
@@ -496,7 +496,7 @@ void emitText(Obj *Prog) {
       printLn("  # 将%s寄存器的值存入%s的栈地址", ArgReg[I], Var->Name);
       storeGeneral(I++, Var->Offset, Var->Ty->Size);
     }
-    I = 0;
+    //I = 0;
 
     // 生成语句链表的代码
     printLn("# =====%s段主体===============", Fn->Name);

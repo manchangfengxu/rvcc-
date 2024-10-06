@@ -28,4 +28,4 @@ build/
 .cache/
 .vscode/
 
-/thought*
+thought.*
