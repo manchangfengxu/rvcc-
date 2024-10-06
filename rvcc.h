@@ -165,6 +165,7 @@ Obj *parse(Token *Tok);
 
 // Type类型种类
 typedef enum {
+  TY_VOID,   // void类型
   TY_CHAR,  // char字符类型
   TY_SHORT,
   TY_INT,   // int整型
@@ -208,6 +209,8 @@ struct Member {
 };
 
 // 声明全局变量，定义在type.c中。
+extern Type *TyVoid;
+
 extern Type *TyChar;
 extern Type *TyInt;
 extern Type *TyLong;
