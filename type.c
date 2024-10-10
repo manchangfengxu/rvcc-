@@ -48,6 +48,23 @@ Type *funcType(Type *ReturnTy) {
   return Ty;
 }
 
+// 获取容纳左右部的类型
+static Type *getCommomType(Type *Ty1, Type *Ty2) {
+  if(Ty1->Base)
+    return pointerTo(Ty1->Base);
+  if(Ty1->Size == 8 || Ty2->Size == 8)
+    return TyLong;
+  return TyInt;
+}
+
+// 进行常规的算术转换
+static void usualArithConv(Node **LHS, Node **RHS) {
+  Type *Ty = getCommomType((*LHS)->Ty, (*RHS)->Ty);
+  // 将左右部转换到兼容的类型
+  *LHS = newCast(*LHS,Ty);
+  *RHS = newCast(*RHS,Ty);
+}
+
 // 构造数组类型, 传入 数组基类, 元素个数
 Type *arrayOf(Type *Base, int Len) {
   Type *Ty = newType(TY_ARRAY, Base->Size * Len, Base->Align);
@@ -79,19 +96,35 @@ void addType(Node *Nd) {
     addType(N);
 
   switch (Nd->Kind) {
+  // 判断是否Val强制转换为int后依然完整，完整则用int否则用long
+  case ND_NUM:
+    Nd->Ty = (Nd->Val == (int)Nd->Val) ? TyInt : TyLong;
+    return;
   // 将节点类型设为 节点左部的类型
   case ND_ADD:
   case ND_SUB:
   case ND_MUL:
   case ND_DIV:
-  case ND_NEG:
+    // 对左右部转换
+    usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = Nd->LHS->Ty;
     return;
+
+  case ND_NEG: {
+    // 对左部转换
+    Type *Ty = getCommomType(TyInt, Nd->LHS->Ty);
+    Nd->LHS = newCast(Nd->LHS, Ty);
+    Nd->Ty = Ty;
+    return;
+  }
     // 将节点类型设为 节点左部的类型
     // 左部不能是数组节点
   case ND_ASSIGN:
     if (Nd->LHS->Ty->Kind == TY_ARRAY)
       errorTok(Nd->LHS->Tok, "not an lvalue");
+    if (Nd->LHS->Ty->Kind != TY_STRUCT)
+      // 对右部转换
+      Nd->RHS = newCast(Nd->RHS, Nd->LHS->Ty);
     Nd->Ty = Nd->LHS->Ty;
     return;
   // 将节点类型设为 int
@@ -99,7 +132,10 @@ void addType(Node *Nd) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
-  case ND_NUM:
+  // 对左右部转换
+    usualArithConv(&Nd->LHS, &Nd->RHS);
+    Nd->Ty = TyInt;
+    return;
   case ND_FUNCALL:
     Nd->Ty = TyLong;
     return;
