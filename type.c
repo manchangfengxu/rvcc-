@@ -5,11 +5,11 @@ Type *TyVoid = &(Type){TY_VOID, 1, 1};
 Type *TyBool = &(Type){TY_BOOL, 1, 1};
 
 Type *TyChar = &(Type){TY_CHAR, 1, 1};
+Type *TyShort = &(Type){TY_SHORT, 2, 2};
 Type *TyInt = &(Type){TY_INT, 4, 4};
 Type *TyLong = &(Type){TY_LONG, 8, 8};
-Type *TyShort = &(Type){TY_SHORT, 2, 2};
 
-static Type *newType(TypeKind Kind, int Size, int Align){
+static Type *newType(TypeKind Kind, int Size, int Align) {
   Type *Ty = calloc(1, sizeof(Type));
   Ty->Kind = Kind;
   Ty->Size = Size;
@@ -17,12 +17,11 @@ static Type *newType(TypeKind Kind, int Size, int Align){
   return Ty;
 }
 
-
 // 判断Type是否为整数
-bool isInteger(Type *Ty) { 
+bool isInteger(Type *Ty) {
   TypeKind K = Ty->Kind;
   return K == TY_BOOL || K == TY_CHAR || K == TY_SHORT || K == TY_INT ||
-         K == TY_LONG;
+         K == TY_LONG || K == TY_ENUM;
 }
 
 // 复制类型
@@ -47,29 +46,32 @@ Type *funcType(Type *ReturnTy) {
   return Ty;
 }
 
-// 获取容纳左右部的类型
-static Type *getCommomType(Type *Ty1, Type *Ty2) {
-  if(Ty1->Base)
-    return pointerTo(Ty1->Base);
-  if(Ty1->Size == 8 || Ty2->Size == 8)
-    return TyLong;
-  return TyInt;
-}
-
-// 进行常规的算术转换
-static void usualArithConv(Node **LHS, Node **RHS) {
-  Type *Ty = getCommomType((*LHS)->Ty, (*RHS)->Ty);
-  // 将左右部转换到兼容的类型
-  *LHS = newCast(*LHS,Ty);
-  *RHS = newCast(*RHS,Ty);
-}
-
 // 构造数组类型, 传入 数组基类, 元素个数
 Type *arrayOf(Type *Base, int Len) {
   Type *Ty = newType(TY_ARRAY, Base->Size * Len, Base->Align);
   Ty->Base = Base;
   Ty->ArrayLen = Len;
   return Ty;
+}
+
+// 构造枚举类型
+Type *enumType(void) { return newType(TY_ENUM, 4, 4); }
+
+// 获取容纳左右部的类型
+static Type *getCommonType(Type *Ty1, Type *Ty2) {
+  if (Ty1->Base)
+    return pointerTo(Ty1->Base);
+  if (Ty1->Size == 8 || Ty2->Size == 8)
+    return TyLong;
+  return TyInt;
+}
+
+// 进行常规的算术转换
+static void usualArithConv(Node **LHS, Node **RHS) {
+  Type *Ty = getCommonType((*LHS)->Ty, (*RHS)->Ty);
+  // 将左右部转换到兼容的类型
+  *LHS = newCast(*LHS, Ty);
+  *RHS = newCast(*RHS, Ty);
 }
 
 // 为节点内的所有节点添加类型
@@ -108,10 +110,9 @@ void addType(Node *Nd) {
     usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = Nd->LHS->Ty;
     return;
-
   case ND_NEG: {
     // 对左部转换
-    Type *Ty = getCommomType(TyInt, Nd->LHS->Ty);
+    Type *Ty = getCommonType(TyInt, Nd->LHS->Ty);
     Nd->LHS = newCast(Nd->LHS, Ty);
     Nd->Ty = Ty;
     return;
@@ -131,7 +132,7 @@ void addType(Node *Nd) {
   case ND_NE:
   case ND_LT:
   case ND_LE:
-  // 对左右部转换
+    // 对左右部转换
     usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = TyInt;
     return;
@@ -150,7 +151,7 @@ void addType(Node *Nd) {
   case ND_MEMBER:
     Nd->Ty = Nd->Mem->Ty;
     return;
-  // 将节点类型设为 指针，并指向左部的类型    
+  // 将节点类型设为 指针，并指向左部的类型
   case ND_ADDR: {
     Type *Ty = Nd->LHS->Ty;
     // 左部如果是数组, 则为指向数组基类的指针
@@ -166,7 +167,8 @@ void addType(Node *Nd) {
     if (!Nd->LHS->Ty->Base)
       errorTok(Nd->Tok, "invalid pointer dereference");
     if (Nd->LHS->Ty->Base->Kind == TY_VOID)
-      errorTok(Nd->Tok, "dereferencing a void pointer");  
+      errorTok(Nd->Tok, "dereferencing a void pointer");
+
     Nd->Ty = Nd->LHS->Ty->Base;
     return;
   // 节点类型为 最后的表达式语句的类型
