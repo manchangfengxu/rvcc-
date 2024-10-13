@@ -193,6 +193,7 @@ static bool isKeyword(Token *Tok) {
 
 // 读取转义字符
 static int readEscapedChar(char **NewPos, char *P) {
+  //八进制转十
   if ('0' <= *P && *P <= '7') {
     // 读取一个八进制数字，不能长于三位
     // \abc = (a*8+b)*8+c
@@ -205,7 +206,7 @@ static int readEscapedChar(char **NewPos, char *P) {
     *NewPos = P;
     return C;
   }
-
+  //十六进制转十
   if (*P == 'x') {
     P++;
     // 判断是否为十六进制数字
@@ -222,7 +223,7 @@ static int readEscapedChar(char **NewPos, char *P) {
   }
 
   *NewPos = P + 1;
-
+  //转义"\a,\b"
   switch (*P) {
   case 'a': // 响铃（警报）
     return '\a';
@@ -284,6 +285,34 @@ static Token *readStringLiteral(char *Start) {
   return Tok;
 }
 
+//读取字符字面量
+static Token *readCharLiteral(char *Start){
+  char *P = Start + 1;
+  //解析字符为\0的情况
+  if(*P == '\0')
+    errorAt(Start, "unclosed char literal");
+
+  //解析字符
+  char C;
+  //转义字符，"\\" => '\'
+  if(*P == '\\')
+    C = readEscapedChar(&P, P + 1);
+  else
+    C = *P++;
+
+  /* strchr返回以 ' 开头的字符串，若无则为NULL
+    查找第一次出现'\''的位置的指针
+  */
+ char *End = strchr(P, '\'');
+ if(!End)
+  errorAt(Start, "unclosed char literal");
+
+//构建一个NUM的终结符，值为C的数值
+Token *Tok = newToken(TK_NUM, Start, End + 1);
+Tok->Val = C;
+return Tok;
+}
+
 // 将名为“return”的终结符转为KEYWORD
 static void convertKeywords(Token *Tok) {
   for (Token *T = Tok; T->Kind != TK_EOF; T = T->Next) {
@@ -341,6 +370,14 @@ Token *tokenize(char *Filename, char *P) {
     // 解析字符串字面量
     if (*P == '"') {
       Cur->Next = readStringLiteral(P);
+      Cur = Cur->Next;
+      P += Cur->Len;
+      continue;
+    }
+
+    //解析“字符”字面量
+    if(*P == '\''){
+      Cur->Next = readCharLiteral(P);
       Cur = Cur->Next;
       P += Cur->Len;
       continue;
