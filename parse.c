@@ -73,7 +73,8 @@ static Obj *CurrentFn;
 //        | exprStmt
 // exprStmt = expr? ";"
 // expr = assign ("," expr)?
-// assign = equality ("=" assign)?
+// assign = equality (assignOp assign)?
+// assignOp = "=" | "+=" | "-=" | "*=" | "/="
 // equality = relational ("==" relational | "!=" relational)*
 // relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 // add = mul ("+" mul | "-" mul)*
@@ -109,6 +110,8 @@ static Node *assign(Token **Rest, Token *Tok);
 static Node *equality(Token **Rest, Token *Tok);
 static Node *relational(Token **Rest, Token *Tok);
 static Node *add(Token **Rest, Token *Tok);
+static Node *newAdd(Node *LHS, Node *RHS, Token *Tok);
+static Node *newSub(Node *LHS, Node *RHS, Token *Tok);
 static Node *mul(Token **Rest, Token *Tok);
 static Node *cast(Token **Rest, Token *Tok);
 static Type *structDecl(Token **Rest, Token *Tok);
@@ -804,8 +807,36 @@ static Node *expr(Token **Rest, Token *Tok) {
   return Nd;
 }
 
+// 转换 A op= B为 TMP = &A, *TMP = *TMP op B
+//例如：转换a += b;为TMP = &a, *TMP = *TMP + b;
+static Node *toAssign(Node *Binary) {
+  //A
+  addType(Binary->LHS);
+  //B
+  addType(Binary->RHS);
+  Token *Tok = Binary->Tok;
+
+  //TMP
+  Obj *Var = newLVar("", pointerTo(Binary->LHS->Ty));
+
+  //TMP = &A
+  Node *Expr1 = newBinary(ND_ASSIGN, newVarNode(Var, Tok), 
+                          newUnary(ND_ADDR, Binary->LHS, Tok), Tok);
+
+  // *TMP = *TMP op B
+  Node *Expr2 = newBinary(
+      ND_ASSIGN, newUnary(ND_DEREF, newVarNode(Var, Tok), Tok),
+      newBinary(Binary->Kind, newUnary(ND_DEREF, newVarNode(Var, Tok), Tok),
+                Binary->RHS, Tok),
+      Tok);
+
+  // TMP = &A, *TMP = *TMP op B
+  return newBinary(ND_COMMA, Expr1, Expr2, Tok);
+}
+
 // 解析赋值
-// assign = equality ("=" assign)?
+// assign = equality (assignOp assign)?
+// assignOp = "=" | "+=" | "-=" | "*=" | "/="
 static Node *assign(Token **Rest, Token *Tok) {
   // equality
   Node *Nd = equality(&Tok, Tok);
@@ -814,6 +845,26 @@ static Node *assign(Token **Rest, Token *Tok) {
   // ("=" assign)?
   if (equal(Tok, "="))
     return Nd = newBinary(ND_ASSIGN, Nd, assign(Rest, Tok->Next), Tok);
+
+  // ("+=" assign)?
+  /*a+b放入toAssign会转为a += b;节点
+  (转换 A op= B为 TMP = &A, *TMP = *TMP op B)
+  */
+  if(equal(Tok, "+="))
+    return toAssign(newAdd(Nd, assign(Rest, Tok->Next), Tok));
+
+  // ("-=" assign)?
+  if (equal(Tok, "-="))
+    return toAssign(newSub(Nd, assign(Rest, Tok->Next), Tok));
+
+  // ("*=" assign)?
+  if (equal(Tok, "*="))
+    return toAssign(newBinary(ND_MUL, Nd, assign(Rest, Tok->Next), Tok));
+
+  // ("/=" assign)?
+  if (equal(Tok, "/="))
+    return toAssign(newBinary(ND_DIV, Nd, assign(Rest, Tok->Next), Tok));
+
   *Rest = Tok;
   return Nd;
 }
@@ -886,7 +937,7 @@ static Node *relational(Token **Rest, Token *Tok) {
   }
 }
 
-// 解析各种加法
+// 解析各种加法（包括指针加法...）
 static Node *newAdd(Node *LHS, Node *RHS, Token *Tok) {
   // 为左右部添加类型
   addType(LHS);
@@ -913,7 +964,7 @@ static Node *newAdd(Node *LHS, Node *RHS, Token *Tok) {
   return newBinary(ND_ADD, LHS, RHS, Tok);
 }
 
-// 解析各种减法
+// 解析各种减法(（包括指针减法...）)
 static Node *newSub(Node *LHS, Node *RHS, Token *Tok) {
   // 为左右部添加类型
   addType(LHS);
