@@ -29,3 +29,5 @@ build/
 .vscode/
 
 thought.*
+
+proxy.sh
