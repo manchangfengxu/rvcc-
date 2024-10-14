@@ -497,7 +497,7 @@ static void emitData(Obj *Prog) {
   }
 }
 
-// 将整形寄存器的值存入栈中
+// 将整形寄存器的值存入栈中(可作为被调用函数的参数)
 static void storeGeneral(int Reg, int Offset, int Size){
   printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
   switch(Size){
@@ -523,8 +523,13 @@ void emitText(Obj *Prog) {
     if (!Fn->IsFunction || !Fn->IsDefinition)
       continue;
 
-    printLn("\n  # 定义全局%s段", Fn->Name);
-    printLn("  .globl %s", Fn->Name);
+    if(Fn->IsStatic) {
+      printLn("\n  # 定义局部%s函数", Fn->Name);
+      printLn("  .local %s", Fn->Name);
+    }else {
+      printLn("\n  # 定义全局%s函数", Fn->Name);
+      printLn("  .globl %s", Fn->Name);
+    }
 
     printLn("  # 代码段标签");
     printLn("  .text");
