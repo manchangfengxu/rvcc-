@@ -85,7 +85,7 @@ static Obj *CurrentFn;
 // structDecl = structUnionDecl
 // unionDecl = structUnionDecl
 // structUnionDecl = ident? ("{" structMembers)?
-// postfix = primary ("[" expr "]" | "." ident)* | "->" ident)*
+// postfix = primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
 // primary = "(" "{" stmt+ "}" ")"
 //         | "(" expr ")"
 //         | "sizeof" "(" typeName ")"
@@ -198,7 +198,7 @@ static Node *newVarNode(Obj *Var, Token *Tok) {
   return Nd;
 }
 
-//新转换,(Ty)转换(Expr......)
+//新转换,(Ty)Expr
 Node *newCast(Node *Expr, Type *Ty){
   addType(Expr);
 
@@ -1217,11 +1217,19 @@ static Node *structRef(Node *LHS, Token *Tok) {
   return Nd;
 }
 
-// postfix = primary ("[" expr "]" | "." ident)* | "->" ident)*
+// 转换 A++ 为 `(typeof A)((A += 1) - 1)`
+// Increase Decrease
+static Node *newIncDec(Node *Nd, Token *Tok, int Addend) {
+  addType(Nd);
+  return newCast(newAdd(toAssign(newAdd(Nd, newNum(Addend,Tok), Tok)), 
+                        newNum(-Addend, Tok), Tok), 
+                Nd->Ty);
+}
+
+// postfix = primary ("[" expr "]" | "." ident)* | "->" ident | "++" | "--")*
 static Node *postfix(Token **Rest, Token *Tok) {
   // primary
   Node *Nd = primary(&Tok, Tok);
-
   // ("[" expr "]")*
   while (true) {
     if (equal(Tok, "[")) {
@@ -1246,6 +1254,18 @@ static Node *postfix(Token **Rest, Token *Tok) {
       Nd = newUnary(ND_DEREF, Nd, Tok);
       Nd = structRef(Nd, Tok->Next);
       Tok = Tok->Next->Next;
+      continue;
+    }
+
+    if(equal(Tok, "++")) {
+      Nd = newIncDec(Nd, Tok, 1);
+      Tok = Tok->Next;
+      continue;
+    }
+
+    if(equal(Tok, "--")) {
+      Nd = newIncDec(Nd, Tok, -1);
+      Tok = Tok->Next;
       continue;
     }
 
