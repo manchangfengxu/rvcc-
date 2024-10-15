@@ -75,6 +75,8 @@ static void usualArithConv(Node **LHS, Node **RHS) {
 }
 
 // 为节点内的所有节点添加类型
+//进行运算中隐式的类型转换
+//转换为int后的长度适配（long,int选择）
 void addType(Node *Nd) {
   // 判断 节点是否为空 或者 节点类型已经有值，那么就直接返回
   if (!Nd || Nd->Ty)
