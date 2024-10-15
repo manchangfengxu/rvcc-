@@ -286,6 +286,40 @@ static Token *readStringLiteral(char *Start) {
   return Tok;
 }
 
+//读取数字字面量
+static Token *readInLiterral(char *Start) {
+  char *P = Start;
+
+  // 读取二、八、十、十六进制
+  // 默认为十进制
+  int Base = 10;
+  // strncasecmp:比较两个字符串前2个字符，忽略大小写，
+  //isxdigit:并判断是否为十六进制数字字符。（0-9, a-f, A-F）
+  if(!strncasecmp(P, "0x", 2) && isxdigit(P[2])) {
+    //十六进制
+    P += 2;
+    Base = 16;
+  }else if(!strncasecmp(P, "0b", 2) && (P[2] == '0' || P[2] == '1')) {
+    //二进制
+    P += 2;
+    Base = 2;
+  }else if(*P == '0'){
+    //八进制
+    Base = 8;
+  }
+
+  // 将字符串转换为Base进制的数字,并将转换终止的位置赋值给P
+  long Val = strtoul(P, &P, Base);
+  //检查P是否为字母或数字
+  if(isalnum(*P))
+    errorAt(Start, "invalid number");
+
+  // 构造NUM的终结符
+  Token *Tok = newToken(TK_NUM, Start, P);
+  Tok->Val = Val;
+  return Tok;
+}
+
 //读取字符字面量
 static Token *readCharLiteral(char *Start){
   char *P = Start + 1;
@@ -359,12 +393,12 @@ Token *tokenize(char *Filename, char *P) {
       // 初始化，类似于C++的构造函数
       // 我们不使用Head来存储信息，仅用来表示链表入口，这样每次都是存储在Cur->Next
       // 否则下述操作将使第一个Token的地址不在Head中。
-      Cur->Next = newToken(TK_NUM, P, P);
+
+      // 读取数字字面量,构建Token
+      Cur->Next = readInLiterral(P);
       // 指针前进
       Cur = Cur->Next;
-      const char *OldPtr = P;
-      Cur->Val = strtoul(P, &P, 10);
-      Cur->Len = P - OldPtr;
+      P += Cur->Len;
       continue;
     }
 
