@@ -305,8 +305,9 @@ static void genExpr(Node *Nd) {
   // 将结果弹栈到a1
   pop("a1");
 
-  // 生成各个二叉树节点
+  //判断数据类型大小
   char *Suffix = Nd->LHS->Ty->Kind == TY_LONG || Nd->LHS->Ty->Base ? "" : "w";
+  // 生成各个二叉树节点
   switch (Nd->Kind) {
   case ND_ADD: // + a0=a0+a1
     printLn("  # a0+a1，结果写入a0");
@@ -323,6 +324,10 @@ static void genExpr(Node *Nd) {
   case ND_DIV: // / a0=a0/a1
     printLn("  # a0÷a1，结果写入a0");
     printLn("  div%s a0, a0, a1", Suffix);
+    return;
+  case ND_MOD: // % a0=a0%a1
+    printLn("  # a0%%a1，结果写入a0");
+    printLn("  rem%s a0, a0, a1", Suffix);
     return;
   case ND_EQ:
   case ND_NE:

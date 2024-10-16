@@ -66,7 +66,7 @@ static Type *getCommonType(Type *Ty1, Type *Ty2) {
   return TyInt;
 }
 
-// 进行常规的算术转换
+// 进行常规的算术转换（算数中的隐式转换）
 static void usualArithConv(Node **LHS, Node **RHS) {
   Type *Ty = getCommonType((*LHS)->Ty, (*RHS)->Ty);
   // 将左右部转换到兼容的类型
@@ -108,6 +108,7 @@ void addType(Node *Nd) {
   case ND_SUB:
   case ND_MUL:
   case ND_DIV:
+  case ND_MOD:
     // 对左右部转换
     usualArithConv(&Nd->LHS, &Nd->RHS);
     Nd->Ty = Nd->LHS->Ty;
