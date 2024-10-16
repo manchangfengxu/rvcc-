@@ -266,6 +266,12 @@ static void genExpr(Node *Nd) {
     printLn("  # 非运算符");
     printLn("  seqz a0, a0");
     return;
+  // 按位取非运算
+  case ND_BITNOT:
+    genExpr(Nd->LHS);
+    // 这里的 not a0, a0 为 xori a0, a0, -1 的伪码
+    printLn("  not a0, a0");
+    return;
   // 函数调用
   case ND_FUNCALL: {
     // 记录参数个数
