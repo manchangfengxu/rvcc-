@@ -260,6 +260,12 @@ static void genExpr(Node *Nd) {
     genExpr(Nd->LHS);
     cast(Nd->LHS->Ty, Nd->Ty);
     return;
+  //非运算符
+  case ND_NOT:
+    genExpr(Nd->LHS);
+    printLn("  # 非运算符");
+    printLn("  seqz a0, a0");
+    return;
   // 函数调用
   case ND_FUNCALL: {
     // 记录参数个数

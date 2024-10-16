@@ -141,6 +141,10 @@ void addType(Node *Nd) {
   case ND_FUNCALL:
     Nd->Ty = Nd->FuncType->ReturnTy;
     return;
+  //将节点类型设置为int
+  case ND_NOT:
+    Nd->Ty = TyInt;
+    return;
   // 将节点类型设为 变量的类型
   case ND_VAR:
     Nd->Ty = Nd->Var->Ty;
