@@ -54,6 +54,8 @@ static Node *Labels;
 
 // 当前goto跳转的目标
 static char *BrkLabel;
+// 当前continue跳转的目标
+static char *ContLabel;
 
 // program = (typedef | functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
@@ -79,6 +81,7 @@ static char *BrkLabel;
 //        | "while" "(" expr ")" stmt
 //        | "goto" ident ";"
 //        | "break" ";"
+//        | "continue" ";"
 //        | ident ":" stmt
 //        | "{" compoundStmt
 //        | exprStmt
@@ -689,6 +692,7 @@ static bool isTypename(Token *Tok) {
 //        | "while" "(" expr ")" stmt
 //        | "goto" ident ";"
 //        | "break" ";"
+//        | "continue" ";"
 //        | ident ":" stmt
 //        | "{" compoundStmt
 //        | exprStmt
@@ -731,10 +735,12 @@ static Node *stmt(Token **Rest, Token *Tok) {
     //进入for循环域
     enterScope();
 
-    // 存储此前(上一个域)break标签的名称
+    // 存储此前(上一个域)break,和continue标签的名称
     char *Brk = BrkLabel;
-    // 为当前域设置break标签的名称
+    char *Cont = ContLabel;  
+    // 为当前域设置break和continue标签的名称
     BrkLabel = Nd->BrkLabel = newUniqueName();
+    ContLabel = Nd->ContLabel = newUniqueName();
 
     // exprStmt
     if(isTypename(Tok)){
@@ -762,8 +768,9 @@ static Node *stmt(Token **Rest, Token *Tok) {
     Nd->Then = stmt(Rest, Tok);
     //退出for循环域
     leaveScope();
-    // 恢复此前的break标签
+    // 恢复此前的break和continue标签
     BrkLabel = Brk;
+    ContLabel = Cont;
     return Nd;
   }
 
@@ -777,14 +784,17 @@ static Node *stmt(Token **Rest, Token *Tok) {
     // ")"
     Tok = skip(Tok, ")");
 
-    // 存储此前(上一个域)break标签的名称
+    // 存储此前(上一个域)break和continue标签的名称
     char *Brk = BrkLabel;
-    // (为之前域)设置break标签的名称
+    char *Cont = ContLabel;
+    // (为之前域)设置break和continue标签的名称
     BrkLabel = Nd->BrkLabel = newUniqueName();
+    ContLabel = Nd->ContLabel = newUniqueName();
     // stmt
     Nd->Then = stmt(Rest, Tok);
-    // 恢复此前的break标签
+    // 恢复此前的break和continue标签
     BrkLabel = Brk;
+    ContLabel = Cont;
     return Nd;
   }
 
@@ -806,6 +816,17 @@ static Node *stmt(Token **Rest, Token *Tok) {
     // 跳转到当前域,break标签的位置
     Node *Nd = newNode(ND_GOTO, Tok);
     Nd->UniqueLabel = BrkLabel;
+    *Rest = skip(Tok->Next, ";");
+    return Nd;
+  }
+
+  // "continue" ";"
+  if(equal(Tok, "continue")) {
+    if(!ContLabel)
+      errorTok(Tok, "stray continue");
+    // 跳转到continue标签的位置
+    Node *Nd = newNode(ND_GOTO, Tok);
+    Nd->UniqueLabel = ContLabel;
     *Rest = skip(Tok->Next, ";");
     return Nd;
   }
