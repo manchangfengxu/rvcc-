@@ -484,11 +484,35 @@ static void genStmt(Node *Nd) {
     // 跳转到循环头部
     printLn("  # 跳转到循环%d的.L.begin.%d段", C, C);
     printLn("  j .L.begin.%d", C);
-    // 输出循环尾部标签,即break标签
+    // 输出循环尾部标签,即break标签，这样在域内break就可以脱离域了
     printLn("\n# 循环%d的%s段标签", C, Nd->BrkLabel);
     printLn("%s:", Nd->BrkLabel);
     return;
   }
+  case ND_SWITCH:
+    printLn("\n# =====switch语句===============");
+    genExpr(Nd->Cond);
+    printLn("  # 遍历跳转到值等于a0的case标签");
+    for (Node *N = Nd->CaseNext; N; N = N->CaseNext) {
+      printLn("  li t0, %ld", N->Val);
+      printLn("  beq a0, t0, %s", N->Label);
+    }
+    if (Nd->DefaultCase) {
+      printLn("  # 跳转到default标签");
+      printLn("  j %s", Nd->DefaultCase->Label);
+    }
+    printLn("  # 结束switch，跳转break标签");
+    printLn("  j %s", Nd->BrkLabel);
+    // 生成case标签的语句
+    genStmt(Nd->Then);
+    printLn("# switch的break标签，结束switch");
+    printLn("%s:", Nd->BrkLabel);
+    return;
+  case ND_CASE:
+    printLn("# case标签，值为%ld", Nd->Val);
+    printLn("%s:", Nd->Label);
+    genStmt(Nd->LHS);
+    return;
   // 生成代码块，遍历代码块的语句链表
   case ND_BLOCK:
     for (Node *N = Nd->Body; N; N = N->Next)
