@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// actual = ({......}),语句表达式
 void assert(int expected, int actual, char *code) {
   if (expected == actual) {
     printf("%s => %d\n", code, actual);
