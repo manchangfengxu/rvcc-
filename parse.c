@@ -999,23 +999,30 @@ static void writeBuf(char *Buf, uint64_t Val, int Sz) {
 // 对全局变量的初始化器写入数据
 static void writeGVarData(Initializer *Init, Type *Ty, char *Buf, int Offset) {
   // 处理数组
-  if(Ty->Kind == TY_ARRAY){
+  if (Ty->Kind == TY_ARRAY) {
     int Sz = Ty->Base->Size;
     for (int I = 0; I < Ty->ArrayLen; I++)
-      writeGVarData(Init->Children[I], Ty->Base, Buf, Offset + Sz*I);
+      writeGVarData(Init->Children[I], Ty->Base, Buf, Offset + Sz * I);
+    return;
+  }
+
+  // 处理结构体
+  if (Ty->Kind == TY_STRUCT) {
+    for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next)
+      writeGVarData(Init->Children[Mem->Idx], Mem->Ty, Buf,
+                    Offset + Mem->Offset);
     return;
   }
 
   // 计算常量表达式
   if (Init->Expr)
-    write(Buf + Offset, eval(Init->Expr), Ty->Size);
+    writeBuf(Buf + Offset, eval(Init->Expr), Ty->Size);
 }
 
 // 全局变量在编译时需计算出初始化的值，然后写入.data段。
 static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
   // 获取到初始化器
   Initializer *Init = initializer(Rest, Tok, Var->Ty, &Var->Ty);
-
   // 写入计算过后的数据
   char *Buf = calloc(1, Var->Ty->Size);
   writeGVarData(Init, Var->Ty, Buf, 0);
