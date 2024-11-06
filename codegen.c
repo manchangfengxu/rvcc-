@@ -73,12 +73,12 @@ static void genAddr(Node *Nd) {
   case ND_DEREF:
     genExpr(Nd->LHS);
     return;
-  //逗号
+  // 逗号
   case ND_COMMA:
     genExpr(Nd->LHS);
     genAddr(Nd->RHS);
     return;
-  //结构体成员变量
+  // 结构体成员
   case ND_MEMBER:
     genAddr(Nd->LHS);
     printLn("  # 计算成员变量的地址偏移量");
@@ -94,17 +94,15 @@ static void genAddr(Node *Nd) {
 
 // 加载a0指向的值
 static void load(Type *Ty) {
-  if (Ty->Kind == TY_ARRAY  ||
-      Ty->Kind == TY_STRUCT ||
-      Ty->Kind == TY_UNION)
+  if (Ty->Kind == TY_ARRAY || Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION)
     return;
 
   printLn("  # 读取a0中存放的地址，得到的值存入a0");
   if (Ty->Size == 1)
     printLn("  lb a0, 0(a0)");
-  else if(Ty->Size == 2)
+  else if (Ty->Size == 2)
     printLn("  lh a0, 0(a0)");
-  else if(Ty->Size == 4)
+  else if (Ty->Size == 4)
     printLn("  lw a0, 0(a0)");
   else
     printLn("  ld a0, 0(a0)");
@@ -114,31 +112,32 @@ static void load(Type *Ty) {
 static void store(Type *Ty) {
   pop("a1");
 
-  if(Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
-    printLn(" #对%s进行赋值", Ty->Kind == TY_STRUCT ? "结构体" : "联合体");
-    for(int I = 0; I < Ty->Size; ++I){
-      printLn(" li t0, %d", I);
-      printLn(" add t0, a0, t0");
-      printLn(" lb t1, 0(t0)");
+  if (Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
+    printLn("  # 对%s进行赋值", Ty->Kind == TY_STRUCT ? "结构体" : "联合体");
+    for (int I = 0; I < Ty->Size; ++I) {
+      printLn("  li t0, %d", I);
+      printLn("  add t0, a0, t0");
+      printLn("  lb t1, 0(t0)");
 
-      printLn(" li t0, %d", I);
-      printLn(" add t0, a1, t0");
-      printLn(" sb t1, 0(t0)");
+      printLn("  li t0, %d", I);
+      printLn("  add t0, a1, t0");
+      printLn("  sb t1, 0(t0)");
     }
     return;
   }
+
   printLn("  # 将a0的值，写入到a1中存放的地址");
   if (Ty->Size == 1)
     printLn("  sb a0, 0(a1)");
-  else if(Ty->Size == 2)
+  else if (Ty->Size == 2)
     printLn("  sh a0, 0(a1)");
-  else if(Ty->Size == 4)
+  else if (Ty->Size == 4)
     printLn("  sw a0, 0(a1)");
   else
     printLn("  sd a0, 0(a1)");
 };
 
-//类型枚举
+// 类型枚举
 enum { I8, I16, I32, I64 };
 
 // 获取类型对应的枚举值
@@ -170,18 +169,20 @@ static char i64i32[] = "  # 转换为i32类型\n"
 // 所有类型转换表
 static char *castTable[10][10] = {
     // clang-format off
+
     // 被映射到
     // {i8,  i16,    i32,    i64}
     {NULL,   NULL,   NULL,   NULL}, // 从i8转换
     {i64i8,  NULL,   NULL,   NULL}, // 从i16转换
     {i64i8,  i64i16, NULL,   NULL}, // 从i32转换
     {i64i8,  i64i16, i64i32, NULL}, // 从i64转换
+
     // clang-format on
 };
 
 // 类型转换
 static void cast(Type *From, Type *To) {
-  if(To->Kind == TY_VOID)
+  if (To->Kind == TY_VOID)
     return;
 
   if (To->Kind == TY_BOOL) {
@@ -193,13 +194,11 @@ static void cast(Type *From, Type *To) {
   // 获取类型的枚举值
   int T1 = getTypeId(From);
   int T2 = getTypeId(To);
-  //根据From和To的类型，从castTable中获取转换代码，并打印出来
-  if(castTable[T1][T2]){
+  if (castTable[T1][T2]) {
     printLn("  # 转换函数");
     printLn("%s", castTable[T1][T2]);
   }
 }
-
 
 // 生成表达式
 static void genExpr(Node *Nd) {
@@ -258,7 +257,7 @@ static void genExpr(Node *Nd) {
     genExpr(Nd->LHS);
     genExpr(Nd->RHS);
     return;
-  //类型转换
+  // 类型转换
   case ND_CAST:
     genExpr(Nd->LHS);
     cast(Nd->LHS->Ty, Nd->Ty);
@@ -268,11 +267,10 @@ static void genExpr(Node *Nd) {
     printLn("  # 对%s的内存%d(fp)清零%d位", Nd->Var->Name, Nd->Var->Offset,
             Nd->Var->Ty->Size);
     // 对栈内变量所占用的每个字节都进行清零
-    for(int I = 0; I < Nd->Var->Ty->Size; ++I){
+    for (int I = 0; I < Nd->Var->Ty->Size; I++)
       printLn("  sb zero, %d(fp)", Nd->Var->Offset + I);
-    }
+    return;
   }
-  return;
   // 条件运算符
   case ND_COND: {
     int C = count();
@@ -288,10 +286,11 @@ static void genExpr(Node *Nd) {
     printLn(".L.end.%d:", C);
     return;
   }
-  //非运算符
+  // 非运算
   case ND_NOT:
     genExpr(Nd->LHS);
-    printLn("  # 非运算符");
+    printLn("  # 非运算");
+    // a0=0则置1，否则为0
     printLn("  seqz a0, a0");
     return;
   // 逻辑与
@@ -312,7 +311,6 @@ static void genExpr(Node *Nd) {
     printLn(".L.end.%d:", C);
     return;
   }
-
   // 逻辑或
   case ND_LOGOR: {
     int C = count();
@@ -334,6 +332,7 @@ static void genExpr(Node *Nd) {
   // 按位取非运算
   case ND_BITNOT:
     genExpr(Nd->LHS);
+    printLn("  # 按位取反");
     // 这里的 not a0, a0 为 xori a0, a0, -1 的伪码
     printLn("  not a0, a0");
     return;
@@ -370,9 +369,8 @@ static void genExpr(Node *Nd) {
   // 将结果弹栈到a1
   pop("a1");
 
-  //判断数据类型大小
-  char *Suffix = Nd->LHS->Ty->Kind == TY_LONG || Nd->LHS->Ty->Base ? "" : "w";
   // 生成各个二叉树节点
+  char *Suffix = Nd->LHS->Ty->Kind == TY_LONG || Nd->LHS->Ty->Base ? "" : "w";
   switch (Nd->Kind) {
   case ND_ADD: // + a0=a0+a1
     printLn("  # a0+a1，结果写入a0");
@@ -502,7 +500,7 @@ static void genStmt(Node *Nd) {
     if (Nd->Cond) {
       // 生成条件循环语句
       genExpr(Nd->Cond);
-      // 判断结果是否为0，为0则跳转到结束部分, 即break标签
+      // 判断结果是否为0，为0则跳转到结束部分
       printLn("  # 若a0为0，则跳转到循环%d的%s段", C, Nd->BrkLabel);
       printLn("  beqz a0, %s", Nd->BrkLabel);
     }
@@ -520,7 +518,7 @@ static void genStmt(Node *Nd) {
     // 跳转到循环头部
     printLn("  # 跳转到循环%d的.L.begin.%d段", C, C);
     printLn("  j .L.begin.%d", C);
-    // 输出循环尾部标签,即break标签，这样在域内break就可以脱离域了
+    // 输出循环尾部标签
     printLn("\n# 循环%d的%s段标签", C, Nd->BrkLabel);
     printLn("%s:", Nd->BrkLabel);
     return;
@@ -528,15 +526,18 @@ static void genStmt(Node *Nd) {
   case ND_SWITCH:
     printLn("\n# =====switch语句===============");
     genExpr(Nd->Cond);
+
     printLn("  # 遍历跳转到值等于a0的case标签");
     for (Node *N = Nd->CaseNext; N; N = N->CaseNext) {
       printLn("  li t0, %ld", N->Val);
       printLn("  beq a0, t0, %s", N->Label);
     }
+
     if (Nd->DefaultCase) {
       printLn("  # 跳转到default标签");
       printLn("  j %s", Nd->DefaultCase->Label);
     }
+
     printLn("  # 结束switch，跳转break标签");
     printLn("  j %s", Nd->BrkLabel);
     // 生成case标签的语句
@@ -612,17 +613,27 @@ static void emitData(Obj *Prog) {
       continue;
 
     printLn("\n  # 数据段标签");
-    printLn("   .data");
+    printLn("  .data");
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("%s:", Var->Name);
-      // 打印出字符串的内容，包括转义字符
-      for (int I = 0; I < Var->Ty->Size; ++I) {
-        char C = Var->InitData[I];
-        if (isprint(C))
-          printLn("  .byte %d\t# 字符：%c", C, C);
-        else
-          printLn("  .byte %d", C);
+      Relocation *Rel = Var->Rel;
+      int Pos = 0;
+      while (Pos < Var->Ty->Size) {
+        if (Rel && Rel->Offset == Pos) {
+          // 使用其他变量进行初始化
+          printLn("  # %s全局变量", Var->Name);
+          printLn("  .quad %s%+ld", Rel->Label, Rel->Addend);
+          Rel = Rel->Next;
+          Pos += 8;
+        } else {
+          // 打印出字符串的内容，包括转义字符
+          char C = Var->InitData[Pos++];
+          if (isprint(C))
+            printLn("  .byte %d\t# 字符：%c", C, C);
+          else
+            printLn("  .byte %d", C);
+        }
       }
     } else {
       printLn("\n  # 全局段%s", Var->Name);
@@ -634,21 +645,22 @@ static void emitData(Obj *Prog) {
   }
 }
 
-// 将整形寄存器的值存入栈中(可作为被调用函数的参数)
-static void storeGeneral(int Reg, int Offset, int Size){
+// 将整形寄存器的值存入栈中
+static void storeGeneral(int Reg, int Offset, int Size) {
   printLn("  # 将%s寄存器的值存入%d(fp)的栈地址", ArgReg[Reg], Offset);
-  switch(Size){
-    case 1:
-      printLn("  sb %s, %d(fp)", ArgReg[Reg], Offset);
-      return;
-    case 2:
-      printLn("  sh %s, %d(fp)", ArgReg[Reg], Offset);
-    case 4:
-      printLn("  sw %s, %d(fp)", ArgReg[Reg], Offset);
-      return;
-    case 8:
-      printLn("  sd %s, %d(fp)", ArgReg[Reg], Offset);
-      return;
+  switch (Size) {
+  case 1:
+    printLn("  sb %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  case 2:
+    printLn("  sh %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  case 4:
+    printLn("  sw %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
+  case 8:
+    printLn("  sd %s, %d(fp)", ArgReg[Reg], Offset);
+    return;
   }
   unreachable();
 }
@@ -660,10 +672,10 @@ void emitText(Obj *Prog) {
     if (!Fn->IsFunction || !Fn->IsDefinition)
       continue;
 
-    if(Fn->IsStatic) {
+    if (Fn->IsStatic) {
       printLn("\n  # 定义局部%s函数", Fn->Name);
       printLn("  .local %s", Fn->Name);
-    }else {
+    } else {
       printLn("\n  # 定义全局%s函数", Fn->Name);
       printLn("  .globl %s", Fn->Name);
     }
@@ -703,11 +715,8 @@ void emitText(Obj *Prog) {
     printLn("  addi sp, sp, -%d", Fn->StackSize);
 
     int I = 0;
-    for (Obj *Var = Fn->Params; Var; Var = Var->Next) {
-      printLn("  # 将%s寄存器的值存入%s的栈地址", ArgReg[I], Var->Name);
+    for (Obj *Var = Fn->Params; Var; Var = Var->Next)
       storeGeneral(I++, Var->Offset, Var->Ty->Size);
-    }
-    //I = 0;
 
     // 生成语句链表的代码
     printLn("# =====%s段主体===============", Fn->Name);
