@@ -92,7 +92,7 @@ static Node *CurrentSwitch;
 //             | enumSpecifier)+
 // enumSpecifier = ident? "{" enumList? "}"
 //                | ident ("{" enumList? "}")?
-// enumList = ident ("=" constExpr)? ("," ident ("=" constExpr)?)*
+// enumList = ident ("=" constExpr)? ("," ident ("=" constExpr)?)* ","?
 // declarator = "*"* ("(" ident ")" | "(" declarator ")" | ident) typeSuffix
 // typeSuffix = "(" funcParams | "[" arrayDimensions | ε
 // arrayDimensions = constExpr? "]" typeSuffix
@@ -107,11 +107,11 @@ static Node *CurrentSwitch;
 // stringInitializer = stringLiteral
 
 // arrayInitializer = arrayInitializer1 | arrayInitializer2
-// arrayInitializer1 = "{" initializer ("," initializer)* "}"
-// arrayIntializer2 = initializer ("," initializer)*
+// arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
+// arrayIntializer2 = initializer ("," initializer)* ","?
 // structInitializer = structInitializer1 | structInitializer2
-// structInitializer1 = "{" initializer ("," initializer)* "}"
-// structIntializer2 = initializer ("," initializer)*
+// structInitializer1 = "{" initializer ("," initializer)* ","? "}"
+// structIntializer2 = initializer ("," initializer)* ","?
 
 // unionInitializer = "{" initializer "}"
 // stmt = "return" expr ";"
@@ -650,10 +650,34 @@ static Type *typename(Token **Rest, Token *Tok){
   return abstractDeclarator(Rest, Tok, Ty);
 }
 
+// 判断是否终结符匹配到了结尾
+static bool isEnd(Token *Tok) {
+  // "}" | ",}"
+  return (equal(Tok, "}") || (equal(Tok, ",") && equal(Tok->Next, "}")));
+}
+
+// 消耗掉结尾的终结符
+// "}" | ",}"
+static bool consumeEnd(Token **Rest, Token *Tok) {
+  // "}"
+  if(equal(Tok, "}")) {
+    *Rest = Tok->Next;
+    return true;
+  }
+
+  // ",}"
+  if(equal(Tok, ",") && equal(Tok->Next, "}")) {
+    *Rest = Tok->Next->Next;
+    return true;
+  }
+  // 没有消耗到指定字符
+  return false;
+}
+
 // 获取枚举类型信息
 // enumSpecifier = ident? "{" enumList? "}"
 //               | ident ("{" enumList? "}")?
-// enumList      = ident ("=" constExpr)? ("," ident ("=" constExpr)?)*
+// enumList      = ident ("=" constExpr)? ("," ident ("=" constExpr)?)* ","?
 static Type *enumSpecifier(Token **Rest, Token *Tok) {
   Type *Ty = enumType();
 
@@ -684,7 +708,7 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
   //读取枚举列表
   int I = 0;  //第几个枚举常量
   int Val = 0; //枚举常量的值
-  while(!equal(Tok, "}")){
+  while(!consumeEnd(Rest, Tok)){
     if(I++ > 0)
       Tok = skip(Tok, ",");
     
@@ -700,8 +724,6 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
     S->EnumTy = Ty;
     S->EnumVal = Val++;
   }
-
-  *Rest = Tok->Next;
 
   if(Tag)
     pushTagScope(Tag, Ty);
@@ -786,7 +808,7 @@ static int countArrayInitElements(Token *Tok, Type *Ty) {
   // 项数
   int I = 0;
   // 遍历所有匹配的项
-  for (; !equal(Tok, "}"); I++) {
+  for (; !consumeEnd(&Tok, Tok); I++) {
     if (I > 0)
       Tok = skip(Tok, ",");
     initializer2(&Tok, Tok, Dummy);
@@ -794,7 +816,7 @@ static int countArrayInitElements(Token *Tok, Type *Ty) {
   return I;
 }
 
-// arrayInitializer1 = "{" initializer ("," initializer)* "}"
+// arrayInitializer1 = "{" initializer ("," initializer)* ","? "}"
 static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
 
@@ -806,7 +828,7 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   }
 
   // 遍历数组
-  for (int I = 0; !consume(Rest, Tok, "}"); I++) {
+  for (int I = 0; !consumeEnd(Rest, Tok); I++) {
     if (I > 0)
       Tok = skip(Tok, ",");
     // 正常解析元素
@@ -818,7 +840,7 @@ static void arrayInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   }
 }
 
-// arrayIntializer2 = initializer ("," initializer)*
+// arrayIntializer2 = initializer ("," initializer)* ","?
 static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   // 如果数组是可调整的，那么就计算数组的元素数，然后进行初始化器的构造
   if (Init->IsFlexible) {
@@ -828,7 +850,7 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   }
 
   // 遍历数组
-  for (int I = 0; I < Init->Ty->ArrayLen && !equal(Tok, "}"); I++) {
+  for (int I = 0; I < Init->Ty->ArrayLen && !isEnd(Tok); I++) {
     if (I > 0)
       Tok = skip(Tok, ",");
     initializer2(&Tok, Tok, Init->Children[I]);
@@ -836,14 +858,14 @@ static void arrayInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   *Rest = Tok;
 }
 
-// structInitializer1 = "{" initializer ("," initializer)* "}"
+// structInitializer1 = "{" initializer ("," initializer)* ","? "}"
 static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   Tok = skip(Tok, "{");
 
   // 成员变量的链表
   Member *Mem = Init->Ty->Mems;
 
-  while(!consume(Rest, Tok, "}")) {
+  while (!consumeEnd(Rest, Tok)) {
     // Mem未指向Init->Ty->Mems，则说明Mem进行过Next的操作，就不是第一个
     if(Mem != Init->Ty->Mems)
       Tok = skip(Tok, ",");
@@ -859,11 +881,11 @@ static void structInitializer1(Token **Rest, Token *Tok, Initializer *Init) {
   }
 }
 
-// structIntializer2 = initializer ("," initializer)*
+// structIntializer2 = initializer ("," initializer)* ","?
 static void structInitializer2(Token **Rest, Token *Tok, Initializer *Init) {
   bool First = true;
   // 遍历所有成员变量
-  for (Member *Mem = Init->Ty->Mems; Mem && !equal(Tok, "}"); Mem = Mem->Next) {
+  for (Member *Mem = Init->Ty->Mems; Mem && !isEnd(Tok); Mem = Mem->Next) {
     if (!First)
       Tok = skip(Tok, ",");
     First = false;
@@ -878,6 +900,8 @@ static void unionInitializer(Token **Rest, Token *Tok, Initializer *Init) {
   if (equal(Tok, "{")) {
     // 存在括号的情况
     initializer2(&Tok, Tok->Next, Init->Children[0]);
+    // ","?
+    consume(&Tok, Tok, ",");
     *Rest = skip(Tok, "}");
   } else {
     // 不存在括号的情况
