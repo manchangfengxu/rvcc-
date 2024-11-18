@@ -604,12 +604,27 @@ static void assignLVarOffsets(Obj *Prog) {
   }
 }
 
+// 返回Num里2的个数(Num为偶数)
+static int simpleLog2(int Num) {
+  int N = Num;
+  int E = 0;
+  while (N > 1) {
+    if (N % 2 == 1) error("Wrong value %d", Num);
+
+    N /= 2;
+    ++E;
+  }
+  return E;
+}
+
 static void emitData(Obj *Prog) {
   for (Obj *Var = Prog; Var; Var = Var->Next) {
     if (Var->IsFunction) continue;
 
     printLn("\n  # 全局段%s", Var->Name);
     printLn("  .globl %s", Var->Name);
+    if (!Var->Ty->Align) error("Align can not be 0!");
+    printLn("  .align %d", simpleLog2(Var->Ty->Align));
     // 判断是否有初始值
     if (Var->InitData) {
       printLn("\n  # 数据段标签");

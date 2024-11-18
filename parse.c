@@ -534,7 +534,7 @@ static Type *funcParams(Token **Rest, Token *Tok, Type *Ty) {
     *Rest = Tok->Next->Next;
     return funcType(Ty);
   }
-  
+
   Type Head = {};
   Type *Cur = &Head;
 
