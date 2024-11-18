@@ -62,10 +62,8 @@ Type *structType(void) { return newType(TY_STRUCT, 0, 1); }
 
 // 获取容纳左右部的类型
 static Type *getCommonType(Type *Ty1, Type *Ty2) {
-  if (Ty1->Base)
-    return pointerTo(Ty1->Base);
-  if (Ty1->Size == 8 || Ty2->Size == 8)
-    return TyLong;
+  if (Ty1->Base) return pointerTo(Ty1->Base);
+  if (Ty1->Size == 8 || Ty2->Size == 8) return TyLong;
   return TyInt;
 }
 
@@ -82,8 +80,7 @@ static void usualArithConv(Node **LHS, Node **RHS) {
 //转换为int后的长度适配（long,int选择）
 void addType(Node *Nd) {
   // 判断 节点是否为空 或者 节点类型已经有值，那么就直接返回
-  if (!Nd || Nd->Ty)
-    return;
+  if (!Nd || Nd->Ty) return;
 
   // 递归访问所有节点以增加类型
   addType(Nd->LHS);
@@ -95,126 +92,122 @@ void addType(Node *Nd) {
   addType(Nd->Inc);
 
   // 访问链表内的所有节点以增加类型
-  for (Node *N = Nd->Body; N; N = N->Next)
-    addType(N);
+  for (Node *N = Nd->Body; N; N = N->Next) addType(N);
   // 访问链表内的所有参数节点以增加类型
-  for (Node *N = Nd->Args; N; N = N->Next)
-    addType(N);
+  for (Node *N = Nd->Args; N; N = N->Next) addType(N);
 
   switch (Nd->Kind) {
-  // 判断是否Val强制转换为int后依然完整，完整则用int否则用long
-  case ND_NUM:
-    Nd->Ty = (Nd->Val == (int)Nd->Val) ? TyInt : TyLong;
-    return;
-  // 将节点类型设为 节点左部的类型
-  case ND_ADD:
-  case ND_SUB:
-  case ND_MUL:
-  case ND_DIV:
-  case ND_MOD:
-  case ND_BITAND:
-  case ND_BITOR:
-  case ND_BITXOR:
-    // 对左右部转换
-    usualArithConv(&Nd->LHS, &Nd->RHS);
-    Nd->Ty = Nd->LHS->Ty;
-    return;
-  case ND_NEG: {
-    // 对左部转换
-    Type *Ty = getCommonType(TyInt, Nd->LHS->Ty);
-    Nd->LHS = newCast(Nd->LHS, Ty);
-    Nd->Ty = Ty;
-    return;
-  }
+    // 判断是否Val强制转换为int后依然完整，完整则用int否则用long
+    case ND_NUM:
+      Nd->Ty = (Nd->Val == (int)Nd->Val) ? TyInt : TyLong;
+      return;
     // 将节点类型设为 节点左部的类型
-    // 左部不能是数组节点
-  case ND_ASSIGN:
-    if (Nd->LHS->Ty->Kind == TY_ARRAY)
-      errorTok(Nd->LHS->Tok, "not an lvalue");
-    if (Nd->LHS->Ty->Kind != TY_STRUCT)
-      // 对右部转换
-      Nd->RHS = newCast(Nd->RHS, Nd->LHS->Ty);
-    Nd->Ty = Nd->LHS->Ty;
-    return;
-  // 将节点类型设为 int
-  case ND_EQ:
-  case ND_NE:
-  case ND_LT:
-  case ND_LE:
-    // 对左右部转换
-    usualArithConv(&Nd->LHS, &Nd->RHS);
-    Nd->Ty = TyInt;
-    return;
-  case ND_FUNCALL:
-    Nd->Ty = Nd->FuncType->ReturnTy;
-    return;
-  //将节点类型设置为int
-  case ND_NOT:
-  case ND_LOGOR:
-  case ND_LOGAND:
-    Nd->Ty = TyInt;
-    return;
-  // 将节点类型设为 左部的类型
-  case ND_BITNOT:
-  case ND_SHL:
-  case ND_SHR:
-    Nd->Ty = Nd->LHS->Ty;
-    return;
-  // 将节点类型设为 变量的类型
-  case ND_VAR:
-    Nd->Ty = Nd->Var->Ty;
-    return;
-  // 如果:左或右部为void则为void，否则为二者兼容的类型
-  case ND_COND:
-    if(Nd->Then->Ty->Kind == TY_VOID || Nd->Els->Ty->Kind == TY_VOID) {
-      Nd->Ty = TyVoid;
-    } else {
-      usualArithConv(&Nd->Then, &Nd->Els);
-      Nd->Ty = Nd->Then->Ty;
+    case ND_ADD:
+    case ND_SUB:
+    case ND_MUL:
+    case ND_DIV:
+    case ND_MOD:
+    case ND_BITAND:
+    case ND_BITOR:
+    case ND_BITXOR:
+      // 对左右部转换
+      usualArithConv(&Nd->LHS, &Nd->RHS);
+      Nd->Ty = Nd->LHS->Ty;
+      return;
+    case ND_NEG: {
+      // 对左部转换
+      Type *Ty = getCommonType(TyInt, Nd->LHS->Ty);
+      Nd->LHS = newCast(Nd->LHS, Ty);
+      Nd->Ty = Ty;
+      return;
     }
-    return;
-  // 将节点类型设为 右部的类型
-  case ND_COMMA:
-    Nd->Ty = Nd->RHS->Ty;
-    return;
-  // 将节点类型设为 成员的类型
-  case ND_MEMBER:
-    Nd->Ty = Nd->Mem->Ty;
-    return;
-  // 将节点类型设为 指针，并指向左部的类型
-  case ND_ADDR: {
-    Type *Ty = Nd->LHS->Ty;
-    // 左部如果是数组, 则为指向数组基类的指针
-    if (Ty->Kind == TY_ARRAY)
-      Nd->Ty = pointerTo(Ty->Base);
-    else
-      Nd->Ty = pointerTo(Ty);
-    return;
-  }
-  // 节点类型：如果解引用指向的是指针，则为指针指向的类型；否则报错
-  case ND_DEREF:
-    // 如果不存在基类, 则无法解引用
-    if (!Nd->LHS->Ty->Base)
-      errorTok(Nd->Tok, "invalid pointer dereference");
-    if (Nd->LHS->Ty->Base->Kind == TY_VOID)
-      errorTok(Nd->Tok, "dereferencing a void pointer");
-
-    Nd->Ty = Nd->LHS->Ty->Base;
-    return;
-  // 节点类型为 最后的表达式语句的类型
-  case ND_STMT_EXPR:
-    if (Nd->Body) {
-      Node *Stmt = Nd->Body;
-      while (Stmt->Next)
-        Stmt = Stmt->Next;
-      if (Stmt->Kind == ND_EXPR_STMT) {
-        Nd->Ty = Stmt->LHS->Ty;
-        return;
+      // 将节点类型设为 节点左部的类型
+      // 左部不能是数组节点
+    case ND_ASSIGN:
+      if (Nd->LHS->Ty->Kind == TY_ARRAY)
+        errorTok(Nd->LHS->Tok, "not an lvalue");
+      if (Nd->LHS->Ty->Kind != TY_STRUCT)
+        // 对右部转换
+        Nd->RHS = newCast(Nd->RHS, Nd->LHS->Ty);
+      Nd->Ty = Nd->LHS->Ty;
+      return;
+    // 将节点类型设为 int
+    case ND_EQ:
+    case ND_NE:
+    case ND_LT:
+    case ND_LE:
+      // 对左右部转换
+      usualArithConv(&Nd->LHS, &Nd->RHS);
+      Nd->Ty = TyInt;
+      return;
+    case ND_FUNCALL:
+      Nd->Ty = Nd->FuncType->ReturnTy;
+      return;
+    //将节点类型设置为int
+    case ND_NOT:
+    case ND_LOGOR:
+    case ND_LOGAND:
+      Nd->Ty = TyInt;
+      return;
+    // 将节点类型设为 左部的类型
+    case ND_BITNOT:
+    case ND_SHL:
+    case ND_SHR:
+      Nd->Ty = Nd->LHS->Ty;
+      return;
+    // 将节点类型设为 变量的类型
+    case ND_VAR:
+      Nd->Ty = Nd->Var->Ty;
+      return;
+    // 如果:左或右部为void则为void，否则为二者兼容的类型
+    case ND_COND:
+      if (Nd->Then->Ty->Kind == TY_VOID || Nd->Els->Ty->Kind == TY_VOID) {
+        Nd->Ty = TyVoid;
+      } else {
+        usualArithConv(&Nd->Then, &Nd->Els);
+        Nd->Ty = Nd->Then->Ty;
       }
+      return;
+    // 将节点类型设为 右部的类型
+    case ND_COMMA:
+      Nd->Ty = Nd->RHS->Ty;
+      return;
+    // 将节点类型设为 成员的类型
+    case ND_MEMBER:
+      Nd->Ty = Nd->Mem->Ty;
+      return;
+    // 将节点类型设为 指针，并指向左部的类型
+    case ND_ADDR: {
+      Type *Ty = Nd->LHS->Ty;
+      // 左部如果是数组, 则为指向数组基类的指针
+      if (Ty->Kind == TY_ARRAY)
+        Nd->Ty = pointerTo(Ty->Base);
+      else
+        Nd->Ty = pointerTo(Ty);
+      return;
     }
-    errorTok(Nd->Tok, "statement expression returning void is not supported");
-    return;
-  default:
-    break;
+    // 节点类型：如果解引用指向的是指针，则为指针指向的类型；否则报错
+    case ND_DEREF:
+      // 如果不存在基类, 则无法解引用
+      if (!Nd->LHS->Ty->Base) errorTok(Nd->Tok, "invalid pointer dereference");
+      if (Nd->LHS->Ty->Base->Kind == TY_VOID)
+        errorTok(Nd->Tok, "dereferencing a void pointer");
+
+      Nd->Ty = Nd->LHS->Ty->Base;
+      return;
+    // 节点类型为 最后的表达式语句的类型
+    case ND_STMT_EXPR:
+      if (Nd->Body) {
+        Node *Stmt = Nd->Body;
+        while (Stmt->Next) Stmt = Stmt->Next;
+        if (Stmt->Kind == ND_EXPR_STMT) {
+          Nd->Ty = Stmt->LHS->Ty;
+          return;
+        }
+      }
+      errorTok(Nd->Tok, "statement expression returning void is not supported");
+      return;
+    default:
+      break;
   }
 }
