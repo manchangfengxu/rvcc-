@@ -31,3 +31,5 @@ build/
 thought.*
 
 proxy.sh
+
+.clang-format
