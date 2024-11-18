@@ -17,14 +17,12 @@ static void parseArgs(int Argc, char **Argv) {
   // 遍历所有传入程序的参数
   for (int I = 1; I < Argc; I++) {
     // 如果存在help，则直接显示用法说明
-    if (!strcmp(Argv[I], "--help"))
-      usage(0);
+    if (!strcmp(Argv[I], "--help")) usage(0);
 
     // 解析-o XXX的参数
     if (!strcmp(Argv[I], "-o")) {
       // 不存在目标文件则报错
-      if (!Argv[++I])
-        usage(1);
+      if (!Argv[++I]) usage(1);
       // 目标文件的路径
       OptO = Argv[I];
       continue;
@@ -46,19 +44,16 @@ static void parseArgs(int Argc, char **Argv) {
   }
 
   // 不存在输入文件时报错
-  if (!InputPath)
-    error("no input files");
+  if (!InputPath) error("no input files");
 }
 
 // 打开需要写入的文件
 static FILE *openFile(char *Path) {
-  if (!Path || strcmp(Path, "-") == 0)
-    return stdout;
+  if (!Path || strcmp(Path, "-") == 0) return stdout;
 
   // 以写入模式打开文件
   FILE *Out = fopen(Path, "w");
-  if (!Out)
-    error("cannot open output file: %s: %s", Path, strerror(errno));
+  if (!Out) error("cannot open output file: %s: %s", Path, strerror(errno));
   return Out;
 }
 
