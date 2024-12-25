@@ -619,7 +619,7 @@ static int simpleLog2(int Num) {
 
 static void emitData(Obj *Prog) {
   for (Obj *Var = Prog; Var; Var = Var->Next) {
-    if (Var->IsFunction) continue;
+    if (Var->IsFunction || !Var->IsDefinition) continue;
 
     printLn("\n  # 全局段%s", Var->Name);
     printLn("  .globl %s", Var->Name);
