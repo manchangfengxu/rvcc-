@@ -34,6 +34,7 @@ struct Scope {
 typedef struct {
   bool IsStatic;   // 是否为文件域内
   bool IsTypedef;  //是否为类型别名
+  bool IsExtern;   // 是否为外部变量
 } VarAttr;
 
 // 可变的初始化器。此处为树状结构。
@@ -86,7 +87,7 @@ static Node *CurrentSwitch;
 // program = (typedef | functionDefinition | globalVariable)*
 // functionDefinition = declspec declarator "{" compoundStmt*
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
-//             | "typedef" | "static"
+//             | "typedef" | "static" | "extern"
 //             | structDecl | unionDecl | typedefName
 //             | enumSpecifier)+
 // enumSpecifier = ident? "{" enumList? "}"
@@ -368,6 +369,8 @@ static Obj *newLVar(char *Name, Type *Ty) {
 static Obj *newGVar(char *Name, Type *Ty) {
   Obj *Var = newVar(Name, Ty);
   Var->Next = Globals;
+  // 存在定义
+  Var->IsDefinition = true;
   Globals = Var;
   return Var;
 }
@@ -414,7 +417,7 @@ static void pushTagScope(Token *Tok, Type *Ty) {
 }
 
 // declspec = ("void" | "_Bool" | char" | "short" | "int" | "long"
-//             | "typedef" | "static"
+//             | "typedef" | "static" | "extern"
 //             | structDecl | unionDecl | typedefName
 //             | enumSpecifier)+
 // declarator specifier
@@ -437,16 +440,18 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
   // 遍历所有类型名的Tok
   while (isTypename(Tok)) {
     // 处理typedef关键字
-    if (equal(Tok, "typedef") || equal(Tok, "static")) {
+    if (equal(Tok, "typedef") || equal(Tok, "static") || equal(Tok, "extern")) {
       if (!Attr)
         errorTok(Tok, "storage class specifier is not allowed in this context");
       if (equal(Tok, "typedef"))
         Attr->IsTypedef = true;
+      else if(equal(Tok, "extern"))
+        Attr->IsExtern = true;
       else
         Attr->IsStatic = true;
 
-      // typedef不应与static一起使用
-      if (Attr->IsStatic && Attr->IsTypedef)
+      // typedef不应与static/extern一起使用
+      if ((Attr->IsStatic || Attr->IsExtern) && Attr->IsTypedef)
         errorTok(Tok, "typedef and static are contradictory");
       Tok = Tok->Next;
       continue;
@@ -1168,7 +1173,7 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
   static char *Kw[] = {"void",   "_Bool", "char",    "short", "int",   "long",
-                       "struct", "union", "typedef", "enum",  "static"};
+                       "struct", "union", "typedef", "enum",  "static", "extern"};
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
     if (equal(Tok, Kw[I])) return true;
   }
@@ -2437,7 +2442,7 @@ static Token *function(Token *Tok, Type *BaseTy, VarAttr *Attr) {
 }
 
 // 构造全局变量
-static Token *globalVariable(Token *Tok, Type *Basety) {
+static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
   bool First = true;
 
   while (!consume(&Tok, Tok, ";")) {
@@ -2447,6 +2452,8 @@ static Token *globalVariable(Token *Tok, Type *Basety) {
     Type *Ty = declarator(&Tok, Tok, Basety);
     // 全局变量初始化
     Obj *Var = newGVar(getIdent(Ty->Name), Ty);
+    // 是否具有定义
+    Var->IsDefinition = !Attr->IsExtern;
     if (equal(Tok, "=")) GVarInitializer(&Tok, Tok->Next, Var);
   }
   return Tok;
@@ -2484,7 +2491,7 @@ Obj *parse(Token *Tok) {
     }
 
     // 全局变量
-    Tok = globalVariable(Tok, BaseTy);
+    Tok = globalVariable(Tok, BaseTy, &Attr);
   }
 
   return Globals;
