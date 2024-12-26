@@ -27,6 +27,13 @@ int main() {
   ASSERT(0, (long)(char *)&g2 % 512);
   ASSERT(0, (long)(char *)&g4 % 4);
   ASSERT(0, (long)(char *)&g5 % 8);
+
+  // [119] 支持对变量使用_Alignof
+  ASSERT(1, ({ char x; _Alignof(x); }));
+  ASSERT(4, ({ int x; _Alignof(x); }));
+  ASSERT(1, ({ char x; _Alignof x; }));
+  ASSERT(4, ({ int x; _Alignof x; }));
+
   printf("OK\n");
   return 0;
 }
