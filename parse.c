@@ -2,22 +2,22 @@
 
 // 局部变量，全局变量，typedef，enum常量的域
 typedef struct VarScope VarScope;
-//变量域
+// 变量域
 struct VarScope {
   VarScope *Next;  // 下一变量域
   char *Name;      // 变量域名称
   Obj *Var;        // 对应的变量
   Type *Typedef;   // 别名
-  Type *EnumTy;    //枚举的类型
-  int EnumVal;     //枚举的值
+  Type *EnumTy;    // 枚举的类型
+  int EnumVal;     // 枚举的值
 };
 
 // 结构体标签，联合体标签，枚举标签的域
 typedef struct TagScope TagScope;
 struct TagScope {
-  TagScope *Next;  //下一个标签域
-  char *Name;      //域名称
-  Type *Ty;        //域类名
+  TagScope *Next;  // 下一个标签域
+  char *Name;      // 域名称
+  Type *Ty;        // 域类名
 };
 
 // 表示一个块域
@@ -27,13 +27,13 @@ struct Scope {
 
   // C有两个域：变量（或类型别名）域，结构体（或联合体，枚举）标签域
   VarScope *Vars;  // 指向当前域内的变量
-  TagScope *Tags;  //指向当前域内的结构体标签
+  TagScope *Tags;  // 指向当前域内的结构体标签
 };
 
-//变量属性(是否是static, typedef)
+// 变量属性(是否是static, typedef)
 typedef struct {
   bool IsStatic;   // 是否为文件域内
-  bool IsTypedef;  //是否为类型别名
+  bool IsTypedef;  // 是否为类型别名
   bool IsExtern;   // 是否为外部变量
   int Align;       // 对齐量
 } VarAttr;
@@ -158,6 +158,7 @@ static Node *CurrentSwitch;
 //         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
+//         | "_Alignof" unary
 //         | ident funcArgs?
 //         | str
 //         | num
@@ -270,7 +271,7 @@ static Node *newNum(int64_t Val, Token *Tok) {
   return Nd;
 }
 
-//新建一个长整型节点
+// 新建一个长整型节点
 static Node *newLong(int64_t Val, Token *Tok) {
   Node *Nd = newNode(ND_NUM, Tok);
   Nd->Val = Val;
@@ -285,7 +286,7 @@ static Node *newVarNode(Obj *Var, Token *Tok) {
   return Nd;
 }
 
-//新转换,(Ty)Expr
+// 新转换,(Ty)Expr
 Node *newCast(Node *Expr, Type *Ty) {
   addType(Expr);
 
@@ -327,7 +328,7 @@ static Initializer *newInitializer(Type *Ty, bool IsFlexible) {
 
   // 处理结构体和联合体
   if (Ty->Kind == TY_STRUCT || Ty->Kind == TY_UNION) {
-    //计算结构体成员的数量
+    // 计算结构体成员的数量
     int Len = 0;
     for (Member *Mem = Ty->Mems; Mem; Mem = Mem->Next) ++Len;
 
@@ -406,11 +407,11 @@ static char *getIdent(Token *Tok) {
   return strndup(Tok->Loc, Tok->Len);
 }
 
-//查找类型别名
+// 查找类型别名
 static Type *findTypedef(Token *Tok) {
-  //类型名是个标识符
+  // 类型名是个标识符
   if (Tok->Kind == TK_IDENT) {
-    //查找是否存在于变量域内
+    // 查找是否存在于变量域内
     VarScope *S = findVar(Tok);
     if (S) return S->Typedef;
   }
@@ -455,7 +456,7 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
         errorTok(Tok, "storage class specifier is not allowed in this context");
       if (equal(Tok, "typedef"))
         Attr->IsTypedef = true;
-      else if(equal(Tok, "extern"))
+      else if (equal(Tok, "extern"))
         Attr->IsExtern = true;
       else
         Attr->IsStatic = true;
@@ -467,14 +468,13 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
       continue;
     }
 
-    if(equal(Tok, "_Alignas")) {
+    if (equal(Tok, "_Alignas")) {
       // 不存在变量属性时，无法设置对齐值
-      if(!Attr)
-        errorTok(Tok, "_Alignas is not allowed in this context");
-      Tok= skip(Tok->Next, "(");
+      if (!Attr) errorTok(Tok, "_Alignas is not allowed in this context");
+      Tok = skip(Tok->Next, "(");
 
       // 判断是类型名，或者常量表达式
-      if(isTypename(Tok))
+      if (isTypename(Tok))
         Attr->Align = typename(&Tok, Tok)->Align;
       else
         Attr->Align = constExpr(&Tok, Tok);
@@ -482,7 +482,7 @@ static Type *declspec(Token **Rest, Token *Tok, VarAttr *Attr) {
       continue;
     }
 
-    //处理用户定义的类型
+    // 处理用户定义的类型
     Type *Ty2 = findTypedef(Tok);
     if (equal(Tok, "struct") || equal(Tok, "union") || equal(Tok, "enum") ||
         Ty2) {
@@ -723,7 +723,7 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
     Tok = Tok->Next;
   }
 
-  //处理没有{}（枚举变量的声明，定义：enum color a = RED;）
+  // 处理没有{}（枚举变量的声明，定义：enum color a = RED;）
   if (Tag && !equal(Tok, "{")) {
     Type *Ty = findTag(Tag);
     if (!Ty) errorTok(Tag, "unknown enum type");
@@ -737,19 +737,19 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
   Tok = skip(Tok, "{");
 
   // enumList
-  //读取枚举列表
-  int I = 0;    //第几个枚举常量
-  int Val = 0;  //枚举常量的值
+  // 读取枚举列表
+  int I = 0;    // 第几个枚举常量
+  int Val = 0;  // 枚举常量的值
   while (!consumeEnd(Rest, Tok)) {
     if (I++ > 0) Tok = skip(Tok, ",");
 
     char *Name = getIdent(Tok);
     Tok = Tok->Next;
 
-    //判断是否存在赋值
+    // 判断是否存在赋值
     if (equal(Tok, "=")) Val = constExpr(&Tok, Tok->Next);
 
-    //将枚举常量存到变量域中
+    // 将枚举常量存到变量域中
     VarScope *S = pushScope(Name);
     S->EnumTy = Ty;
     S->EnumVal = Val++;
@@ -761,7 +761,8 @@ static Type *enumSpecifier(Token **Rest, Token *Tok) {
 
 // declaration = declspec (declarator ("=" initializer)?
 //                         ("," declarator ("=" initializer)?)*)? ";"
-static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr) {
+static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy,
+                         VarAttr *Attr) {
   Node Head = {};
   Node *Cur = &Head;
   // 对变量声明次数计数
@@ -779,8 +780,7 @@ static Node *declaration(Token **Rest, Token *Tok, Type *BaseTy, VarAttr *Attr) 
 
     Obj *Var = newLVar(getIdent(Ty->Name), Ty);
     // 读取是否存在变量的对齐值
-    if(Attr && Attr->Align)
-      Var->Align = Attr->Align;
+    if (Attr && Attr->Align) Var->Align = Attr->Align;
 
     // 如果不存在"="则为变量声明，不需要生成节点，已经存储在Locals中了
     if (equal(Tok, "=")) {
@@ -1200,9 +1200,10 @@ static void GVarInitializer(Token **Rest, Token *Tok, Obj *Var) {
 
 // 判断是否为类型名
 static bool isTypename(Token *Tok) {
-  static char *Kw[] = {"void",   "_Bool", "char",    "short", "int",   "long",
-                       "struct", "union", "typedef", "enum",  "static", "extern", 
-                       "_Alignas", };
+  static char *Kw[] = {
+      "void",  "_Bool",   "char", "short",  "int",    "long",     "struct",
+      "union", "typedef", "enum", "static", "extern", "_Alignas",
+  };
   for (int I = 0; I < sizeof(Kw) / sizeof(*Kw); ++I) {
     if (equal(Tok, Kw[I])) return true;
   }
@@ -1320,7 +1321,7 @@ static Node *stmt(Token **Rest, Token *Tok) {
     // "("
     Tok = skip(Tok->Next, "(");
 
-    //进入for循环域
+    // 进入for循环域
     enterScope();
 
     // 存储此前(上一个域)break,和continue标签的名称
@@ -1332,11 +1333,11 @@ static Node *stmt(Token **Rest, Token *Tok) {
 
     // exprStmt
     if (isTypename(Tok)) {
-      //初始化循环变量
+      // 初始化循环变量
       Type *BaseTy = declspec(&Tok, Tok, NULL);
       Nd->Init = declaration(&Tok, Tok, BaseTy, NULL);
     } else {
-      //初始化语句
+      // 初始化语句
       Nd->Init = exprStmt(&Tok, Tok);
     }
 
@@ -1352,7 +1353,7 @@ static Node *stmt(Token **Rest, Token *Tok) {
 
     // stmt
     Nd->Then = stmt(Rest, Tok);
-    //退出for循环域
+    // 退出for循环域
     leaveScope();
     // 恢复此前的break和continue标签
     BrkLabel = Brk;
@@ -1640,7 +1641,7 @@ static int64_t constExpr(Token **Rest, Token *Tok) {
 }
 
 // 转换 A op= B为 TMP = &A, *TMP = *TMP op B
-//例如：转换a += b;为TMP = &a, *TMP = *TMP + b;
+// 例如：转换a += b;为TMP = &a, *TMP = *TMP + b;
 static Node *toAssign(Node *Binary) {
   // A
   addType(Binary->LHS);
@@ -1796,8 +1797,8 @@ static Node *bitXor(Token **Rest, Token *Tok) {
   return Nd;
 }
 
-//按位与
-// bitAnd = equality ("&" equality)*
+// 按位与
+//  bitAnd = equality ("&" equality)*
 static Node *bitAnd(Token **Rest, Token *Tok) {
   Node *Nd = equality(&Tok, Tok);
   while (equal(Tok, "&")) {
@@ -2127,7 +2128,7 @@ static Type *structUnionDecl(Token **Rest, Token *Tok) {
   if (Tag && !equal(Tok, "{")) {
     *Rest = Tok;
 
-    //查找已定义的结构体
+    // 查找已定义的结构体
     Type *Ty = findTag(Tag);
     if (Ty) return Ty;
 
@@ -2159,7 +2160,7 @@ static Type *structUnionDecl(Token **Rest, Token *Tok) {
 }
 
 // structDecl = structUnionDecl
-//主：为结构体成员加上偏移量和进行对齐
+// 主：为结构体成员加上偏移量和进行对齐
 static Type *structDecl(Token **Rest, Token *Tok) {
   Type *Ty = structUnionDecl(Rest, Tok);
   Ty->Kind = TY_STRUCT;
@@ -2280,14 +2281,14 @@ static Node *funCall(Token **Rest, Token *Tok) {
   Token *Start = Tok;
   Tok = Tok->Next->Next;
 
-  //查找函数名
+  // 查找函数名
   VarScope *S = findVar(Start);
   if (!S) errorTok(Start, "implicit declaration of a function");
   if (!S->Var || S->Var->Ty->Kind != TY_FUNC) errorTok(Start, "not a function");
 
-  //函数名的类型
+  // 函数名的类型
   Type *Ty = S->Var->Ty;
-  //函数形参的类型
+  // 函数形参的类型
   Type *ParamTy = Ty->Params;
 
   Node Head = {};
@@ -2299,9 +2300,9 @@ static Node *funCall(Token **Rest, Token *Tok) {
     Node *Arg = assign(&Tok, Tok);
     addType(Arg);
 
-    //根据函数参数定义的类型，转换入参的类型
+    // 根据函数参数定义的类型，转换入参的类型
     if (ParamTy) {
-      //入参类型限制
+      // 入参类型限制
       if (ParamTy->Kind == TY_STRUCT || ParamTy->Kind == TY_UNION)
         errorTok(Arg->Tok, "passing struct or union is not supported yet");
       // 将参数节点的类型进行转换
@@ -2320,9 +2321,9 @@ static Node *funCall(Token **Rest, Token *Tok) {
   Node *Nd = newNode(ND_FUNCALL, Start);
   // ident
   Nd->FuncName = strndup(Start->Loc, Start->Len);
-  //函数类型
+  // 函数类型
   Nd->Ty = Ty->ReturnTy;
-  //读取的返回类型
+  // 读取的返回类型
   Nd->Ty = Ty->ReturnTy;
   Nd->Args = Head.Next;
   return Nd;
@@ -2334,6 +2335,7 @@ static Node *funCall(Token **Rest, Token *Tok) {
 //         | "sizeof" "(" typeName ")"
 //         | "sizeof" unary
 //         | "_Alignof" "(" typeName ")"
+//         | "_Alignof" unary
 //         | ident funcArgs?
 //         | str
 //         | num
@@ -2373,13 +2375,20 @@ static Node *primary(Token **Rest, Token *Tok) {
 
   // "_Alignof" "(" typeName ")"
   // 读取类型的对齐值
-  if(equal(Tok, "_Alignof")) {
-    Tok = skip(Tok->Next, "(");
-    Type *Ty = typename(&Tok, Tok);
+  if (equal(Tok, "_Alignof") && (equal(Tok->Next, "(")) &&
+      isTypename(Tok->Next->Next)) {
+    Type *Ty = typename(&Tok, Tok->Next->Next);
     *Rest = skip(Tok, ")");
     return newNum(Ty->Align, Tok);
   }
 
+  // "_Alignof" unary
+  // 读取变量的对齐值
+  if(equal(Tok, "_Alignof")) {
+    Node *Nd = unary(Rest, Tok->Next);
+    addType(Nd);
+    return newNum(Nd->Ty->Align, Tok);
+  }
 
   // ident args?
   if (Tok->Kind == TK_IDENT) {
@@ -2393,9 +2402,9 @@ static Node *primary(Token **Rest, Token *Tok) {
     if (!S || (!S->Var && !S->EnumTy)) errorTok(Tok, "undefined variable");
 
     Node *Nd;
-    //是否为变量
+    // 是否为变量
     if (S->Var) Nd = newVarNode(S->Var, Tok);
-    //否则为枚举量
+    // 否则为枚举量
     else
       Nd = newNum(S->EnumVal, Tok);
 
@@ -2448,14 +2457,14 @@ static void createParamLVars(Type *Param) {
 // 匹配goto和标签
 // 因为标签可能会出现在goto后面，所以要在解析完函数后再进行goto和标签的解析
 static void resolveGotoLabels() {
-  //遍历使goto对应上label
+  // 遍历使goto对应上label
   for (Node *X = Gotos; X; X = X->GotoNext) {
     for (Node *Y = Labels; Y; Y = Y->GotoNext)
       if (!strcmp(X->Label, Y->Label)) {
         X->UniqueLabel = Y->UniqueLabel;
         break;
       }
-    //匹配不上报错
+    // 匹配不上报错
     if (X->UniqueLabel == NULL)
       errorTok(X->Tok->Next, "use of undeclared label");
   }
@@ -2510,8 +2519,7 @@ static Token *globalVariable(Token *Tok, Type *Basety, VarAttr *Attr) {
     // 是否具有定义
     Var->IsDefinition = !Attr->IsExtern;
     // 若有设置，则覆盖全局变量的对齐值
-    if(Attr->Align)
-      Var->Align = Attr->Align;
+    if (Attr->Align) Var->Align = Attr->Align;
 
     if (equal(Tok, "=")) GVarInitializer(&Tok, Tok->Next, Var);
   }
